@@ -1,16 +1,42 @@
 # CODEX第三方对话机器人连接管理器
 
-[English](README.en.md) · 简体中文 · [安全说明](SECURITY.md) · [验证范围](docs/VALIDATION.md)
+**简体中文** | [English](README.en.md)
+
+| 阅读语言 / Language | 完整说明 / Full Guide |
+| --- | --- |
+| 简体中文 | 本页：功能、安装、使用、开发与安全说明 |
+| English | [Features, installation, usage, development, and security](README.en.md) |
+
+[下载桌面版 / Download](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest) · [安全说明 / Security](SECURITY.md) · [验证范围 / Validation](docs/VALIDATION.md)
 
 **让 Codex 与你的聊天工具相连。**
 
 运行在本机的开源工作台：集中管理飞书、企业微信、微信、钉钉机器人，在聊天工具中使用
 本机 Codex，在浏览器中管理连接、会话、上下文、技能与服务。
 
+**Connect Codex to the chat tools you already use.**
+
+A local, open-source manager for Feishu/Lark, WeCom, WeChat, and DingTalk bots.
+Manage connections, conversations, context, skills, and services through the
+Windows desktop app or a local browser. See the [complete English guide](README.en.md).
+
 > 独立第三方项目，非 OpenAI 或聊天平台官方产品。界面参考 Codex 的黑白灰视觉语言。
 > 所有截图使用虚拟演示数据，不代表真实授权状态。
+> Independent third-party project, not an official OpenAI or chat-platform product.
+> Screenshots use fictional demo data. The application UI is currently Chinese.
 
 ![浅色连接卡片](docs/screenshots/connections-light.png)
+
+## 目录
+
+- [核心能力](#核心能力)
+- [界面预览](#界面预览)
+- [平台支持](#平台支持)
+- [快速开始](#快速开始)：Windows 桌面版 / 从源码运行
+- [技能、模型与更新](#技能模型与更新)
+- [数据与安全](#数据与安全)
+- [开发与验证](#开发与验证)
+- [许可](#许可)
 
 ## 核心能力
 
@@ -112,11 +138,15 @@ Windows 优先使用已配置的全局 `lark-cli`，没有时使用项目依赖�
 
 ## 数据与安全
 
-默认监听 `127.0.0.1:3210`，没有独立管理登录，请勿公网暴露、代理或穿透。
+源码版默认监听 `127.0.0.1:3210`，桌面版使用 `127.0.0.1:3211`。
+管理界面没有独立登录，请勿公网暴露、代理或穿透。
 机器人消息可以触发本机操作，应限制可信用户、会话和工作目录，保留 Codex 沙箱。
 详细限制见 [安全说明](SECURITY.md)。
 
-| 默认本地路径 | 用途 |
+以下为源码版的默认路径；桌面版数据独立保存在 `%APPDATA%/CodexChatBridgeManager`，
+不会自动导入源码版的配置、机器人、会话或飞书 CLI 授权。
+
+| 源码版默认本地路径 | 用途 |
 | --- | --- |
 | `state/manager/` | 配置、绑定与授权任务 |
 | `state/bots/<id>/` | 各机器人会话及运行状态 |
@@ -124,7 +154,7 @@ Windows 优先使用已配置的全局 `lark-cli`，没有时使用项目依赖�
 | `runs/` | 执行日志 |
 | `.env` | 可选本机配置 |
 
-路径可由环境变量更改。部分凭据以明文保存，请保护目录和备份，勿上传至 GitHub。
+源码版路径可由环境变量更改。部分凭据以明文保存，请保护目录和备份，勿上传至 GitHub。
 官方平台图标本地内嵌；可选 OpenAI Sans 字体访问官方 CDN，断网时使用本机字体。
 
 ## 开发与验证

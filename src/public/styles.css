@@ -124,7 +124,8 @@ dialog .avatar-storage-note { margin: 18px 0 0; font-size: 11px; color: var(--mu
 .sidebar-footer .icon-button { margin-left: auto; }
 .live-dot, .status-pill::before { width: 5px; height: 5px; border-radius: 50%; background: var(--success); flex-shrink: 0; }
 .live-dot.offline { background: var(--subtle); }
-.main-shell { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; }
+.main-shell { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; }
+.app-footer { padding: 0 16px 12px; color: var(--muted); font-size: 11px; line-height: 1.5; text-align: center; }
 .topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 20px; min-height: 55px; padding: 12px 28px; background: var(--bg); }
 .breadcrumb { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--subtle); }
 .breadcrumb strong { color: var(--text); font-weight: 500; }
@@ -319,6 +320,24 @@ details[open] > summary > .icon, details[open] > summary > .disclosure-icon > .i
 .skill-meta { margin-top: 6px; font-size: 11px; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
 .system-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto auto; gap: 18px; height: 100%; overflow-y: auto; align-content: start; align-items: start; padding-right: 4px; }
 .maintenance-surface { grid-column: 1 / -1; }
+.health-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.health-surface { height: 100%; border-radius: 14px; }
+.health-surface .surface-heading { align-items: center; gap: 12px; }
+.health-surface .tool-symbol { width: 30px; height: 30px; }
+.health-badge { display: inline-flex; align-items: center; gap: 7px; font-size: 16px; font-weight: 500; }
+.health-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.health-success { color: var(--success); }
+.health-warning { color: var(--warning); }
+.health-bad { color: var(--bad); }
+.health-neutral { color: var(--muted); }
+.health-description { color: var(--muted); font-size: 12px; margin-top: 8px; overflow-wrap: anywhere; }
+.health-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+.health-metrics strong { display: block; font-size: 21px; font-weight: 500; }
+.health-metrics span, .health-facts, .health-checked, p.health-warning { font-size: 11px; }
+.health-metrics span, .health-facts, .health-checked { color: var(--muted); }
+.health-facts { display: flex; flex-wrap: wrap; gap: 12px 22px; margin-top: 20px; }
+.health-facts strong { color: var(--text); font-weight: 500; margin-left: 5px; }
+.health-checked, p.health-warning { margin-top: 12px; }
 .system-grid > .surface { border-radius: 14px; }
 .system-grid .surface-heading { margin-bottom: 18px; }
 .tool-update-list { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -439,6 +458,7 @@ dialog .control-row { justify-content: flex-end; }
   .connection-card { min-height: 210px; padding: 20px; }
   .add-connection-card { min-height: 150px; }
   .connection-grid, .system-grid { height: auto; overflow: visible; gap: 16px; }
+  .health-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .surface { padding: 18px; }
   .editor { padding: 0; }
   .editor > .surface-heading { padding: 18px 18px 0; }

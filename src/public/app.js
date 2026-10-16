@@ -2,6 +2,7 @@ import { icon, mountIcons, setIconLabel } from "./icons.js";
 import { setupConnections } from "./connections.js";
 import { renderMarkdown } from "./markdown.js";
 import { createAvatarPreferences, renderAvatar, setupAvatarPicker } from "./avatars.js";
+import { formatUptime, summarizeServices, describeCodexStatus } from "./systemStatus.js";
 
 mountIcons();
 const $ = (id) => document.getElementById(id);
@@ -178,6 +179,12 @@ function renderCli() {
 }
 function renderSystem() {
   const system = state.overview?.system || {};
+  const services = summarizeServices(state.overview?.bots);
+  const badge = (label, tone) => '<span class="health-badge health-' + tone + '">' + escapeHtml(label) + '</span>';
+  patchContent($("runtime-health"), badge(state.offline ? "连接中断" : "运行中", state.offline ? "bad" : "success") + '<p class="health-description">' + (state.offline ? "暂时无法获取最新状态，以下为上次记录。" : "管理服务正常，已运行 " + formatUptime(system.uptimeMs)) + '</p><div class="health-metrics"><div><strong>' + services.running + '/' + services.total + '</strong><span>机器人在线</span></div><div><strong>' + services.active + '</strong><span>执行中</span></div><div><strong>' + services.pending + '</strong><span>排队中</span></div></div>' + (services.errors ? '<p class="health-warning">' + services.errors + ' 个机器人连接异常，请在连接页查看详情。</p>' : ""));
+  const codex = state.overview?.codex || {};
+  const info = describeCodexStatus(codex);
+  patchContent($("codex-health"), badge(state.offline ? "状态已过期" : info.label, state.offline ? "warning" : info.tone) + '<p class="health-description">' + escapeHtml(state.offline ? "管理服务连接中断，恢复后重新检测。" : info.hint) + '</p><div class="health-facts"><span>CLI <strong>' + escapeHtml(codex.version || "-") + '</strong></span><span>登录方式 <strong>' + escapeHtml(codex.authMode || "-") + '</strong></span></div><p class="health-checked">' + (codex.checkedAt ? "上次检测 " + escapeHtml(formatTime(codex.checkedAt)) : "尚无检测记录") + (codex.checking ? " · 检测中" : "") + '</p>');
   const rows = [["Node", system.nodeVersion], ["平台", system.platform], ["管理地址", (system.managerHost || "") + ":" + (system.managerPort || "")], ["工作目录", system.workdir], ["状态目录", system.stateDir], ["日志目录", system.logDir], ["CLI 配置", system.cliConfigDir]];
   const metadataRows = (items) => '<div class="metadata">' + items.map(([key, value]) => "<div><span>" + key + "</span><code>" + escapeHtml(value || "-") + "</code></div>").join("") + "</div>";
   patchContent($("system-status"), metadataRows(rows.slice(0, 3)) + '<details class="runtime-paths" data-persist-key="runtime-paths"><summary>存储与工作目录</summary>' + metadataRows(rows.slice(3)) + '</details>');
@@ -274,6 +281,7 @@ async function refreshAll() {
   if (state.refreshPromise) return state.refreshPromise;
   state.refreshPromise = (async () => {
     state.overview = await api("/api/overview");
+    state.offline = false;
     if (!state.creating && !state.overview.bots.some((entry) => entry.bot.id === state.selectedBotId)) state.selectedBotId = state.overview.bots[0]?.bot.id || "";
     renderOverview();
     await loadSessions();
@@ -335,6 +343,14 @@ document.addEventListener("click", (event) => {
   });
 });
 $("refresh-overview").addEventListener("click", (event) => runAction(event.currentTarget, async () => { await refreshAll(); showToast("状态已刷新"); }));
+$("check-codex-status").addEventListener("click", (event) => runAction(event.currentTarget, async () => {
+  if (!state.overview?.codex) throw new Error("请重启管理服务以启用 Codex 状态检测");
+  const result = await post("/api/codex/status");
+  if (state.overview) state.overview.codex = result;
+  await refreshAll();
+  renderSystem();
+  showToast("Codex 状态已更新");
+}));
 $("session-search").addEventListener("input", () => renderSessionList().catch((error) => showToast(error.message, true)));
 $("session-filter").addEventListener("change", () => renderSessionList().catch((error) => showToast(error.message, true)));
 $("session-list").addEventListener("click", (event) => {
@@ -408,7 +424,7 @@ window.addEventListener("beforeunload", (event) => {
 });
 setInterval(() => {
   if (document.visibilityState !== "visible" || state.busy || $("compress-dialog").open) return;
-  refreshAll().catch(() => { $("connection-dot").classList.add("offline"); $("connection-label").textContent = "连接中断，稍后自动重试"; });
+  refreshAll().catch(() => { state.offline = true; renderSystem(); $("connection-dot").classList.add("offline"); $("connection-label").textContent = "连接中断，稍后自动重试"; });
 }, 15000);
 const connections = setupConnections({ $, state, api, post, escapeHtml, status, selectedBot, selectBot, setView, refreshAll, showToast, runAction, patchContent, avatarPreferences });
 setupAvatarPicker({ preferences: avatarPreferences, getBotId: () => state.creating ? "" : state.selectedBotId, onChange(persisted) {
@@ -424,6 +440,8 @@ window.addEventListener("storage", (event) => {
 });
 document.querySelector('[data-view="connections"]').addEventListener("click", () => connections.showGallery());
 refreshAll().then(() => { if (!state.selectedBotId) setView("connections"); }).catch((error) => {
+  state.offline = true;
+  renderSystem();
   $("connection-label").textContent = "管理服务不可用";
   $("connection-dot").classList.add("offline");
   showToast(error.message, true);

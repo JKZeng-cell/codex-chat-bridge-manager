@@ -15,7 +15,9 @@ test("manager APIs mask platform credentials, preserve legacy forms, and reject 
   config.runtime = { ...config.runtime, managerStateDir: path.join(dir, "manager"), botsStateDir: path.join(dir, "bots") };
   config.cli = { ...config.cli, configDir: path.join(dir, "cli") };
   config.skills.roots = [];
-  const server = createManagerServer(config);
+  let checks = 0;
+  const codex = { state: "ready", version: "1.2.3", authMode: "ChatGPT", checkedAt: new Date().toISOString(), checking: false };
+  const server = createManagerServer(config, { codexStatus: { getStatus: () => codex, refresh: async () => { checks++; return codex; } } });
   await server.start();
   t.after(async () => { await server.stop(); await fs.rm(dir, { recursive: true, force: true }); });
   const base = "http://127.0.0.1:" + server.getAddress().port;
@@ -43,4 +45,16 @@ test("manager APIs mask platform credentials, preserve legacy forms, and reject 
   assert.equal(response.status, 413);
   assert.equal((await fetch(base + "/connections.js")).status, 200);
   assert.equal((await fetch(base + "/api/maintenance")).status, 200);
+  for (const endpoint of ["/api/overview", "/api/system/status"]) {
+    const payload = await (await fetch(base + endpoint)).json();
+    assert.equal(payload.system.state, "running");
+    assert.equal(payload.system.pid, process.pid);
+    assert.deepEqual(payload.codex, codex);
+  }
+  response = await fetch(base + "/api/codex/status", { method: "POST" });
+  assert.deepEqual(await response.json(), codex);
+  assert.equal(checks, 1);
+  response = await fetch(base + "/api/codex/status", { method: "POST", headers: { Origin: "https://malicious.test" } });
+  assert.equal(response.status, 403);
+  assert.equal(checks, 1);
 });

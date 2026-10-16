@@ -8,6 +8,7 @@ import { createBindingManager } from "./bindingManager.js";
 import { createMaintenanceManager } from "./maintenanceManager.js";
 import { createCliTaskManager } from "./cliTaskManager.js";
 import { readModelCatalog } from "./modelCatalog.js";
+import { createCodexStatusMonitor } from "./codexStatus.js";
 import { buildRuntimeConfigFromBot } from "./config.js";
 import { compressSessionRecord } from "./sessionCompression.js";
 import { listSkills } from "./skillRegistry.js";
@@ -94,7 +95,7 @@ function createSeedBots(config) {
   ];
 }
 
-export function createManagerServer(config) {
+export function createManagerServer(config, options = {}) {
   const botStore = createBotStore(path.join(config.runtime.managerStateDir, "bots.json"), {
     seedBots: createSeedBots(config)
   });
@@ -102,6 +103,7 @@ export function createManagerServer(config) {
   const serviceManager = createServiceManager(config, botStore);
   const bindingManager = createBindingManager(config, botStore, serviceManager);
   const maintenanceManager = createMaintenanceManager(config);
+  const codexStatus = options.codexStatus || createCodexStatusMonitor(config);
   const startedAt = Date.now();
 
   async function getSessionStore(botId) {
@@ -124,6 +126,8 @@ export function createManagerServer(config) {
 
     return {
       system: {
+        state: "running",
+        pid: process.pid,
         managerHost: config.manager.host,
         managerPort: config.manager.port,
         uptimeMs: Date.now() - startedAt,
@@ -141,12 +145,16 @@ export function createManagerServer(config) {
         logs: entry.logs
       })),
       models: await readModelCatalog(),
+      codex: codexStatus.getStatus(),
       cli,
       maintenance: maintenanceManager.getStatus()
     };
   }
 
   async function handleApi(req, res, url) {
+    if (req.method === "POST" && url.pathname === "/api/codex/status") {
+      return json(res, 200, await codexStatus.refresh());
+    }
     if (req.method === "POST" && url.pathname.startsWith("/api/cli/") && url.pathname !== "/api/cli/auth/cancel") {
       if (maintenanceManager.getStatus().state === "running") throw new Error("请等待工具更新完成后再授权");
       if (url.pathname === "/api/cli/configure" && (await cliTaskManager.getStatus()).authTask?.running) throw new Error("请先完成或取消正在进行的用户授权");
@@ -181,6 +189,7 @@ export function createManagerServer(config) {
     if (req.method === "GET" && url.pathname === "/api/system/status") {
       return json(res, 200, {
         system: {
+          state: "running",
           uptimeMs: Date.now() - startedAt,
           nodeVersion: process.version,
           platform: process.platform,
@@ -193,6 +202,7 @@ export function createManagerServer(config) {
           managerPort: config.manager.port,
           cliConfigDir: config.cli.configDir
         },
+        codex: codexStatus.getStatus(),
         services: (await serviceManager.listStatuses()).map((entry) => ({ ...entry, bot: sanitizeBot(entry.bot) }))
       });
     }

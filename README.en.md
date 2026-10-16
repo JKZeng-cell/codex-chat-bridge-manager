@@ -1,18 +1,43 @@
 # Codex Third-Party Chat Bot Connection Manager
 
-English · [简体中文](README.md) · [Security](SECURITY.md) · [Validation](docs/VALIDATION.md)
+[简体中文](README.md) | **English**
+
+| Language / 阅读语言 | Full Guide / 完整说明 |
+| --- | --- |
+| 简体中文 | [功能、安装、使用、开发与安全说明](README.md) |
+| English | This page: features, installation, usage, development, and security |
+
+[Download / 下载桌面版](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest) · [Security / 安全说明](SECURITY.md) · [Validation / 验证范围](docs/VALIDATION.md)
 
 **Connect Codex to the chat tools you already use.**
 
 A local, open-source workspace for Feishu/Lark, WeCom, WeChat, and DingTalk bots.
 Use local Codex through chat and manage connections, history, context, skills,
-and services in your browser.
+and services through the Windows desktop app or a local browser.
+
+**让 Codex 与你的聊天工具相连。**
+
+运行在本机的开源管理工具，支持飞书、企业微信、微信和钉钉机器人。
+通过 Windows 桌面应用或本地浏览器管理连接、会话、上下文、技能与服务。
+阅读[完整中文说明](README.md)。
 
 > Independent third-party project, not an official OpenAI or chat-platform product.
 > The interface is inspired by Codex's neutral visual language.
 > All screenshots use fictional data, not live authorizations.
+> 独立第三方项目，非 OpenAI 或聊天平台官方产品；截图为虚拟演示数据，管理界面目前为中文。
 
 ![Light connection cards](docs/screenshots/connections-light.png)
+
+## Contents
+
+- [Highlights](#highlights)
+- [Screenshots](#screenshots)
+- [Platform capabilities](#platform-capabilities)
+- [Quick start](#quick-start): Windows desktop app / Run from source
+- [Skills, models, and updates](#skills-models-and-updates)
+- [Data and security](#data-and-security)
+- [Development and validation](#development-and-validation)
+- [License](#license)
 
 ## Highlights
 
@@ -131,12 +156,17 @@ on subsequent messages. Original history remains; summaries may lose detail.
 
 ## Data And Security
 
-The manager defaults to `127.0.0.1:3210` and has no separate login.
+Source mode defaults to `127.0.0.1:3210`; the desktop app uses `127.0.0.1:3211`.
+The management interface has no separate login.
 Do not expose, proxy, or tunnel it. Chat messages can trigger local Codex actions.
 Restrict users, chats, and directories, and retain sandboxing.
 Read [SECURITY.md](SECURITY.md).
 
-| Default path | Contents |
+The following paths are source-mode defaults. Desktop data lives separately in
+`%APPDATA%/CodexChatBridgeManager`, without automatic import of source-mode settings,
+bots, conversations, or Feishu CLI credentials.
+
+| Source-mode default path | Contents |
 | --- | --- |
 | `state/manager/` | Bot settings, binding and authorization tasks |
 | `state/bots/<id>/` | Per-bot history and runtime state |
@@ -144,7 +174,7 @@ Read [SECURITY.md](SECURITY.md).
 | `runs/` | Execution logs |
 | `.env` | Optional local configuration |
 
-Environment variables can change these paths. Some credentials are plaintext;
+Environment variables can change source-mode paths. Some credentials are plaintext;
 protect these directories and backups and never commit them.
 Brand images are embedded locally. Optional OpenAI Sans fonts use the official CDN
 with local fallbacks when unavailable.
