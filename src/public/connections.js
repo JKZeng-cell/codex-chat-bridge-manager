@@ -155,7 +155,8 @@ export function setupConnections({ $, state, api, post, escapeHtml: esc, status,
     const latest = result.latest_version || result.current_version;
     $("maintenance-message").textContent = task.message || "检查 CLI 版本与飞书技能同步状态";
     $("maintenance-message").classList.toggle("binding-error", task.state === "error");
-    $("maintenance-versions").textContent = current ? "当前 " + current + (latest ? " · 最新 " + latest : "") + (result.skills_status ? " · 技能" + (result.skills_status.in_sync ? "已同步" : "待同步") : "") : "点击检查，获取最新版本信息";
+    $("maintenance-versions").textContent = current ? "当前 " + current + (latest ? " · 最新 " + latest : "") : "尚未检查版本";
+    $("maintenance-skills-status").textContent = result.skills_status ? (result.skills_status.in_sync ? "已与 CLI 同步" : "有待同步的官方技能") : "与飞书 CLI 配套的能力扩展";
     for (const button of document.querySelectorAll("[data-maintenance]")) { button.disabled = task.state === "running"; button.setAttribute("aria-busy", String(task.state === "running")); }
   }
   async function pollMaintenance() {

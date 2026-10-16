@@ -59,7 +59,23 @@
 
 ## 快速开始
 
-需要 **Node.js 22.8+**（推荐 **24 LTS**）、Git、可用的 Codex 账号或 API 配置，
+### Windows 桌面版
+
+从 [GitHub Release](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest) 下载
+Windows x64 安装版（Setup.exe）或免安装版（Portable.exe）。内置 Electron、Codex CLI
+与飞书 CLI，无需另装 Node.js。首次使用可通过菜单「应用 → Codex 登录」授权。
+
+应用数据独立保存在 `%APPDATA%/CodexChatBridgeManager`，管理服务仅监听本机 3211 端口，
+不读取网页工作台的 `.env`、机器人、会话或 CLI 授权目录。Codex 可使用当前系统用户已有的
+Codex 授权；免安装版同样使用上述数据目录，不将凭据写在程序旁。
+
+当前应用包未进行代码签名，Windows 可能显示来源提示。仅从本仓库下载并核对 SHA-256。
+安装和免安装版解压建议临时目录所在磁盘至少保留 2 GB 可用空间。
+关闭桌面应用会停止其管理服务，请先等待执行中任务与工具更新完成。
+
+### 从源码运行
+
+需要 **Node.js 22.12+**（推荐 **24 LTS**）、Git、可用的 Codex 账号或 API 配置，
 以及有权创建/授权机器人的平台账号。安装依赖需要联网。
 
 ```sh
@@ -112,6 +128,9 @@ Windows 优先使用已配置的全局 `lark-cli`，没有时使用项目依赖�
 官方平台图标本地内嵌；可选 OpenAI Sans 字体访问官方 CDN，断网时使用本机字体。
 
 ## 开发与验证
+
+Windows x64 桌面构建：`npm ci` 后运行 `npm run desktop:dist`，产物在 `dist/`。
+打包明确列出允许收录的源码与运行工具，不包含本机配置、历史、授权、日志或截图测试目录。
 
 ```sh
 npm test

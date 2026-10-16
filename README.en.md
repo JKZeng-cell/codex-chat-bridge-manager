@@ -67,7 +67,27 @@ The application UI is currently Chinese; project introductions are bilingual.
 
 ## Quick Start
 
-Requires **Node.js 22.8+** (**24 LTS** recommended), Git, a working Codex account
+### Windows Desktop App
+
+Download the Windows x64 Setup.exe or Portable.exe from
+[GitHub Releases](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest).
+Electron, Codex CLI, and Feishu CLI are bundled; a separate Node.js installation
+is not required. Use Application → Codex Login (应用 → Codex 登录) for authorization.
+
+Desktop data lives separately under `%APPDATA%/CodexChatBridgeManager`; the local
+manager uses port 3211 and does not import the web workspace's `.env`, bots,
+history, or Feishu CLI credentials. Existing system-user Codex authorization can
+be reused. The portable build uses the same application-data directory rather
+than placing credentials beside the executable.
+
+Packages are currently unsigned. Windows may show an unknown-publisher warning.
+Allow at least 2 GB of free space on the temporary-files drive for extraction.
+Download only from this repository and verify SHA-256 checksums. Wait for active
+tasks and tool updates before quitting; exiting stops the desktop-managed service.
+
+### Run From Source
+
+Requires **Node.js 22.12+** (**24 LTS** recommended), Git, a working Codex account
 or API configuration, and permission to authorize platform bots.
 Dependency installation requires internet access.
 
@@ -130,6 +150,10 @@ Brand images are embedded locally. Optional OpenAI Sans fonts use the official C
 with local fallbacks when unavailable.
 
 ## Development And Validation
+
+On Windows x64, run `npm ci` followed by `npm run desktop:dist`; artifacts are
+written to `dist/`. Packaging uses an explicit source/tool allowlist and excludes
+local settings, history, credentials, logs, and smoke-test directories.
 
 ```sh
 npm test

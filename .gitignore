@@ -10,6 +10,10 @@ pet-runs/
 *.tgz
 *.zip
 coverage/
+dist/
+build/runtime/
+build/icon.png
+build/icon.ico
 .DS_Store
 Thumbs.db
 scripts/feishu_uat_poll.mjs

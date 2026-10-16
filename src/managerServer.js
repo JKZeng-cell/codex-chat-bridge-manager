@@ -417,7 +417,8 @@ export function createManagerServer(config) {
   return {
     getAddress() { return server.address(); },
     async start() {
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
+        server.once("error", reject);
         server.listen(config.manager.port, config.manager.host, resolve);
       });
       void serviceManager.startAutoStartBots().catch((error) => {

@@ -27,3 +27,8 @@ Codex, not a pixel-identical copy. 可选字体请求会访问 OpenAI CDN；断�
 
 Dependencies retain their own licenses. Inspect their package LICENSE files and
 `package-lock.json` before redistribution.
+
+Windows desktop distributions bundle Electron (MIT and Chromium third-party
+notices included in the application directory), Codex CLI (Apache-2.0), and
+Feishu CLI (MIT). Runtime tool licenses are included under `resources/tools/`.
+Bundled Codex vendor resources retain their accompanying third-party notices.

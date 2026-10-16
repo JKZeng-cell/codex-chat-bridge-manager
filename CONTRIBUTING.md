@@ -1,6 +1,6 @@
 # Contributing / 参与贡献
 
-Use Node.js 22.8+ (24 LTS recommended), then run:
+Use Node.js 22.12+ (24 LTS recommended), then run:
 
 ```sh
 npm ci

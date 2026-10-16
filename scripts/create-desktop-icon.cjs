@@ -1,0 +1,22 @@
+const { app, BrowserWindow } = require("electron");
+const fs = require("node:fs/promises");
+const path = require("node:path");
+const { pathToFileURL } = require("node:url");
+app.whenReady().then(async () => {
+  const { icon } = await import(pathToFileURL(path.join(process.cwd(), "src/public/icons.js")));
+  const win = new BrowserWindow({ show: false, frame: false, transparent: true, backgroundColor: "#00000000", width: 256, height: 256, webPreferences: { backgroundThrottling: false, sandbox: true, contextIsolation: true, nodeIntegration: false } });
+  const html = '<html><head><style>*{margin:0}body{width:256px;height:256px;background:transparent;color:#191919;--on-accent:#fff}svg{width:256px;height:256px}</style></head><body>' + icon("codex-connect") + '</body></html>';
+  await win.loadURL("data:text/html;charset=utf-8," + encodeURIComponent(html));
+  await win.webContents.executeJavaScript("new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+  const bitmap = await win.webContents.capturePage({ x: 0, y: 0, width: 256, height: 256 });
+  const png = bitmap.toPNG();
+  await fs.mkdir("build", { recursive: true });
+  await fs.writeFile("build/icon.png", png);
+  const header = Buffer.alloc(22);
+  header.writeUInt16LE(1, 2); header.writeUInt16LE(1, 4);
+  header[6] = 0; header[7] = 0;
+  header.writeUInt16LE(1, 10); header.writeUInt16LE(32, 12);
+  header.writeUInt32LE(png.length, 14); header.writeUInt32LE(22, 18);
+  await fs.writeFile("build/icon.ico", Buffer.concat([header, png]));
+  win.destroy(); app.quit();
+}).catch((error) => { console.error(error); app.exit(1); });

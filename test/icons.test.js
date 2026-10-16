@@ -6,10 +6,10 @@ import { PLATFORM_ICONS } from "../src/public/platform-icons.js";
 
 test("Codex connection icon preserves the official mark and adds an independent connection symbol", () => {
   const markup = icon("codex-connect");
-  assert.match(markup, /viewBox="0 0 62 40"/);
+  assert.match(markup, /viewBox="0 0 36 36"/);
   assert.ok(markup.includes(CODEX_OFFICIAL_MARK));
   assert.match(markup, /fill="currentColor" stroke="none"/);
-  assert.match(markup, /circle cx="51" cy="23"/);
+  assert.match(markup, /rect x="1" y="1" width="34" height="34" rx="10"/);
   assert.match(markup, /stroke="currentColor"/);
   assert.match(markup, /aria-hidden="true" focusable="false"/);
   assert.doesNotMatch(markup, /#3370ff|https?:|<script/);

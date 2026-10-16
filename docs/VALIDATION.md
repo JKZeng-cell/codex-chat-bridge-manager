@@ -2,6 +2,32 @@
 
 ## v1.0.1 Avatar Update / 头像更新
 
+### Desktop And UI / 桌面与界面
+
+- 107 automated tests pass after adding desktop path/navigation policy and native
+  CLI spawning tests. Full production and development dependency audit reports
+  zero known vulnerabilities at preparation time.
+- The integrated square brand icon, icon-only sidebar controls, top-aligned
+  System panels, and refined avatar paths were visually checked with fictional
+  data. Widths 390, 780, 1280, and 1920 showed no page-level horizontal overflow.
+- Windows x64 builds bundle Electron 44.8.0, Codex CLI 0.163.0, and Feishu CLI
+  1.0.98. The Electron archive was verified against its package SHA-256 checksum.
+- The packaged application started in an isolated profile, loaded the System
+  page, exposed no renderer Node integration, had zero inherited bots, and ran
+  both bundled CLI binaries successfully. Exit code was zero.
+- Archive inspection verified required source/runtime files and no root `.env`,
+  `state/`, `runs/`, or `pet-runs/` directories in the application package.
+- The self-extracting portable executable also passed the same isolated startup,
+  bundled-tool, renderer-isolation, and clean-exit checks. This test used an
+  E-drive temporary directory because the system drive had insufficient free
+  space; desktop extraction is documented to require 2 GB of available space.
+- The NSIS installer completed silently into an isolated E-drive directory;
+  the installed application passed the same startup and bundled-tool checks.
+  The isolated installation was then uninstalled without touching web-manager
+  state or the user's existing authorization directories.
+- Windows executables are unsigned (`NotSigned`). A working application package
+  is not code-signing certification or proof of all-platform live authorization.
+
 Verified on 2026-10-16, Windows, Node.js 24.11.1:
 
 - 104 automated tests pass, including five avatar tests covering all 16 local

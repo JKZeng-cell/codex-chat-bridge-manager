@@ -4,7 +4,7 @@ import { PLATFORM_ICONS } from "./platform-icons.js";
 const paths = {
   codex: '<g fill="currentColor" stroke="none">' + CODEX_OFFICIAL_MARK + '</g>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',
-  "codex-connect": '<g transform="translate(1 5) scale(1.25)" fill="currentColor" stroke="none">' + CODEX_OFFICIAL_MARK + '</g><circle cx="51" cy="23" r="10" fill="var(--accent-soft)" stroke="none"/><g transform="translate(42 14) scale(.75)" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7 .5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></g>',
+  "codex-connect": '<rect x="1" y="1" width="34" height="34" rx="10" fill="currentColor" stroke="none"/><g transform="translate(5 4) scale(.95)" fill="var(--on-accent, #fff)" stroke="none">' + CODEX_OFFICIAL_MARK + '</g><rect x="19" y="21" width="14" height="12" rx="6" fill="currentColor" stroke="none"/><g transform="translate(20 21) scale(.5)" fill="none" stroke="var(--on-accent, #fff)" stroke-width="2.5"><path d="M10 13a5 5 0 0 0 7 .5l3-3a5 5 0 0 0-7-7l-1.7 1.7M14 11a5 5 0 0 0-7-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></g>',
   bridge: '<path d="M4 18V9a8 8 0 0 1 16 0v9M4 11h16M8 12v6m8-6v6M2 18h20M12 3v8"/>',
   chat: '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9H13a8.5 8.5 0 0 1 8 8v.5Z"/><path d="M8 10h8m-8 4h5"/>',
   plug: '<path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-10 0V8Zm5 8v5"/>',
@@ -33,7 +33,7 @@ export function icon(name) {
     return '<img class="icon platform-icon" src="' + PLATFORM_ICONS[platform].dataUrl + '" width="24" height="24" alt="" aria-hidden="true" draggable="false" />';
   }
   const body = Object.hasOwn(paths, name) ? paths[name] : paths.chat;
-  const viewBox = name === "codex-connect" ? "0 0 62 40" : "0 0 24 24";
+  const viewBox = name === "codex-connect" ? "0 0 36 36" : "0 0 24 24";
   return '<svg class="icon' + (name === "loader" ? " icon-spin" : "") + '" viewBox="' + viewBox + '" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' + body + '</svg>';
 }
 

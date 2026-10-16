@@ -180,7 +180,7 @@ export function buildFeishuCliInvocation(rawArgs, options = {}) {
 export function buildFeishuCliSpawn(rawArgs, options = {}) {
   const invocation = buildFeishuCliInvocation(rawArgs, options);
 
-  if (process.platform !== "win32") {
+  if (process.platform !== "win32" || /\.exe$/i.test(invocation.command)) {
     return invocation;
   }
 

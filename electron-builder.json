@@ -1,0 +1,14 @@
+{
+  "appId": "io.github.jkzeng.codex-chat-bridge-manager",
+  "productName": "Codex Chat Bridge Manager",
+  "executableName": "CodexChatBridgeManager",
+  "directories": { "output": "dist", "buildResources": "build" },
+  "asar": true,
+  "electronDist": "node_modules/electron/dist",
+  "npmRebuild": false,
+  "files": ["electron/**", "src/**", "package.json", "LICENSE", "NOTICE.md", "!node_modules/@openai/**", "!node_modules/@larksuite/cli/**"],
+  "extraResources": [{ "from": "build/runtime", "to": "tools" }, { "from": "build/icon.png", "to": "icon.png" }],
+  "win": { "icon": "build/icon.ico", "target": ["nsis", "portable"], "signAndEditExecutable": true },
+  "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "runAfterFinish": false, "deleteAppDataOnUninstall": false, "artifactName": "CodexChatBridgeManager-${version}-win-x64-Setup.exe" },
+  "portable": { "artifactName": "CodexChatBridgeManager-${version}-win-x64-Portable.exe" }
+}
