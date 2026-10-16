@@ -1,5 +1,31 @@
 # Validation / 验证范围
 
+## v1.0.2 System Status / 系统状态
+
+Verified on 2026-10-17, Windows x64:
+
+- 111 automated tests passed. Full and production-only dependency audits found
+  zero known vulnerabilities at release preparation time.
+- Windows installer and portable packages contain the two system status cards,
+  Codex CLI login checks, the Powered by JKZeng footer, and version 1.0.2.
+- Application archive inspection checked required modules, tool licenses, and
+  absence of private runtime and promotional-output root directories.
+- Unpacked, self-extracting portable, and installed applications passed isolated
+  startup checks: zero inherited bots, no renderer Node integration, visible
+  System page, two health cards, working bundled tools, and clean exit.
+- The installer completed silently in an isolated E-drive destination, and its
+  uninstaller completed after verification. Web-manager data was not imported.
+- Bundled versions are Electron 44.8.0, Codex CLI 0.163.0, and Feishu CLI 1.0.98.
+  Executables remain unsigned (`NotSigned`).
+- Codex status checks are read-only local CLI/login checks, not model requests,
+  network reachability checks, or proof of model permissions or available quota.
+- Release social assets contain a platform-icon poster and four 1200 x 1600
+  feature cards. Development-process wording was removed; fictional-data,
+  independent-project, and account-policy qualifications remain.
+
+所有桌面验证使用隔离目录，不导入真实机器人或飞书授权。
+Codex 可沿用当前系统用户已有授权；验证结果不声称四个平台全部完成实机扫码与投递验收。
+
 ## v1.0.1 Avatar Update / 头像更新
 
 ### Desktop And UI / 桌面与界面

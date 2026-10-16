@@ -45,6 +45,7 @@ Windows desktop app or a local browser. See the [complete English guide](README.
 - **独立机器人**：配置与历史分开保存，队列限制并发，同一会话顺序执行。
 - **个性头像**：连接设置提供 16 款内置头像，自动保存在当前浏览器，同步显示于侧栏、连接卡片与会话；不会修改聊天平台头像。
 - **集中维护**：启动、断开、重启服务，查看日志，更新飞书 CLI 与官方技能。
+- **运行状态**：查看服务运行时长、在线机器人和任务队列；检测 Codex CLI 版本与登录状态，登录成功不等于模型网络连通已验证。
 - **Codex 风格**：黑白灰、轻量侧栏、浅色/深色/跟随系统，窄屏自适应与区域独立滚动。
 
 ## 界面预览
@@ -86,6 +87,8 @@ Windows desktop app or a local browser. See the [complete English guide](README.
 ## 快速开始
 
 ### Windows 桌面版
+
+本次更新见 [v1.0.2 发布说明](docs/releases/v1.0.2.md)。
 
 从 [GitHub Release](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest) 下载
 Windows x64 安装版（Setup.exe）或免安装版（Portable.exe）。内置 Electron、Codex CLI

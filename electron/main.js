@@ -42,10 +42,13 @@ async function smokeTest(paths, origin) {
   });
   result.codex = await binary(paths.codex);
   result.feishuCli = await binary(paths.cli);
+  result.appVersion = app.getVersion();
+  result.health = await win.webContents.executeJavaScript(`(async()=>{const overview=await(await fetch('/api/overview')).json();const codex=await(await fetch('/api/codex/status',{method:'POST'})).json();return {managerState:overview.system.state,codexState:codex.state,codexVersion:codex.version,codexCheckedAt:codex.checkedAt,healthCards:document.querySelectorAll('.health-surface').length,footer:document.querySelector('.app-footer')?.textContent}})()`);
   result.userData = app.getPath("userData");
   result.origin = origin;
   result.packaged = app.isPackaged;
   if (result.hasNode || result.bots !== 0 || !result.systemVisible) throw new Error("Desktop isolation smoke failed.");
+  if (result.health.managerState !== "running" || result.health.healthCards !== 2 || !result.health.codexCheckedAt || !result.codex.includes(result.health.codexVersion) || !result.health.codexVersion || result.health.footer !== "Powered by JKZeng") throw new Error("Desktop system status smoke failed.");
   const report = argument("--smoke-report");
   if (report) {
     await fs.writeFile(report, JSON.stringify(result, null, 2));

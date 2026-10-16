@@ -46,6 +46,7 @@ and services through the Windows desktop app or a local browser.
 - **Independent bots:** isolated settings and history, concurrency limits, and sequential execution within each conversation.
 - **Personal avatars:** choose from 16 built-in designs in connection settings. Per-bot choices are saved in the current browser and shown in navigation, cards, and conversations without changing platform avatars.
 - **Central maintenance:** start, disconnect, restart, inspect logs, and update Feishu CLI / official skills.
+- **Runtime status:** inspect uptime, online bots, and task queues; check the Codex CLI version and login state without mistaking local login for verified model connectivity.
 - **Codex-inspired UI:** neutral colors, lightweight navigation, light/dark/system appearance, responsive layouts, and independent scrolling.
 
 ## Screenshots
@@ -93,6 +94,8 @@ The application UI is currently Chinese; project introductions are bilingual.
 ## Quick Start
 
 ### Windows Desktop App
+
+See the [v1.0.2 release notes](docs/releases/v1.0.2.md) for the latest update.
 
 Download the Windows x64 Setup.exe or Portable.exe from
 [GitHub Releases](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest).
