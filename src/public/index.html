@@ -52,6 +52,7 @@
               <input type="hidden" name="id" />
               <div class="surface-heading"><div><h2 id="editor-title">机器人设置</h2><p id="editor-description">配置只保存在本机。</p></div><span class="draft-label" id="draft-label" hidden>未保存</span></div>
               <div class="editor-body">
+                <div class="avatar-setting"><span id="bot-avatar-preview" class="avatar-preview"></span><div><strong>机器人头像</strong><span>用于本地管理，不修改平台头像</span></div><button class="ghost-button" type="button" id="choose-avatar">更换头像</button></div>
                 <div class="editor-grid">
                   <label class="wide"><span>机器人名称</span><input name="name" placeholder="例如：工作助手" required /></label>
                   <label class="wide"><span id="app-id-label">App ID</span><input name="appId" placeholder="机器人应用 ID" required autocomplete="off" /></label>
@@ -115,6 +116,7 @@
   </dialog>
   <dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">移除连接？</h2><p>将断开并移除 <strong id="delete-connection-name"></strong>。历史文件会保留在本机，不会注销平台账号。</p><div class="control-row"><button class="ghost-button" id="cancel-delete">取消</button><button class="danger-button" id="confirm-delete">移除</button></div></dialog>
   <dialog id="update-dialog" aria-labelledby="update-title"><h2 id="update-title">更新 CLI 与飞书技能？</h2><p>官方更新器会更新本机飞书 CLI 及配套 AI 技能。自定义技能不受影响。过程中请勿关闭管理服务，完成后会刷新技能列表。</p><div class="control-row"><button class="ghost-button" id="cancel-update">取消</button><button class="primary-button" id="confirm-update">开始更新</button></div></dialog>
+  <dialog id="avatar-dialog" class="avatar-dialog" aria-labelledby="avatar-title"><div class="bind-dialog-heading"><div><h2 id="avatar-title">选择头像</h2><span class="muted">为机器人选一个容易辨认的伙伴</span></div><button class="icon-button" id="close-avatar" aria-label="关闭头像选择"><span class="icon-slot" data-icon="close" aria-hidden="true"></span></button></div><div id="avatar-options" class="avatar-options" role="group" aria-label="内置头像"></div><p class="avatar-storage-note">点击即保存到当前浏览器。选择「经典机器人」可恢复默认。</p></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script type="module" src="/app.js"></script>
 </body>

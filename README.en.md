@@ -19,6 +19,7 @@ and services in your browser.
 - **Quick connections:** select a platform and scan its authorization code. Manage each connection through a card; existing Feishu apps also support manual configuration.
 - **Readable conversations:** search history, read Markdown, copy code, inspect errors, and compress long contexts.
 - **Independent bots:** isolated settings and history, concurrency limits, and sequential execution within each conversation.
+- **Personal avatars:** choose from 16 built-in designs in connection settings. Per-bot choices are saved in the current browser and shown in navigation, cards, and conversations without changing platform avatars.
 - **Central maintenance:** start, disconnect, restart, inspect logs, and update Feishu CLI / official skills.
 - **Codex-inspired UI:** neutral colors, lightweight navigation, light/dark/system appearance, responsive layouts, and independent scrolling.
 
@@ -39,7 +40,16 @@ Errors remain separate from detailed diagnostics.
 Bots, identifiers, paths, and messages are fictional.
 See [screenshot notes](docs/screenshots/README.md).
 
-## Platform Support
+### Personalize Your Bots
+
+Open Connections → Bot Settings → Change Avatar (更换头像) and choose a design.
+Choices are saved per bot in the current browser and reflected in navigation,
+cards, and conversations. Select the classic robot to restore the default.
+Chat-platform profile images are not modified.
+
+![Sixteen built-in avatars with fictional demo data](docs/screenshots/avatar-picker.png)
+
+## Platform Capabilities
 
 | Capability | Feishu | WeCom | WeChat | DingTalk |
 | --- | --- | --- | --- | --- |

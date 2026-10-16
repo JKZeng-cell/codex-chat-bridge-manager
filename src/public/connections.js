@@ -1,4 +1,5 @@
 import { icon, mountIcons } from "./icons.js";
+import { renderAvatar } from "./avatars.js";
 
 const platforms = {
   feishu: ["飞书", "创建独立应用，扫码授权", "F"],
@@ -7,7 +8,7 @@ const platforms = {
   dingtalk: ["钉钉", "扫码创建并授权机器人", "D"]
 };
 
-export function setupConnections({ $, state, api, post, escapeHtml: esc, status, selectedBot, selectBot, setView, refreshAll, showToast, runAction, patchContent }) {
+export function setupConnections({ $, state, api, post, escapeHtml: esc, status, selectedBot, selectBot, setView, refreshAll, showToast, runAction, patchContent, avatarPreferences }) {
   let detail = false;
   let binding = null;
   let generation = 0;
@@ -46,7 +47,9 @@ export function setupConnections({ $, state, api, post, escapeHtml: esc, status,
     $("connections-count").textContent = bots.length + " 个连接 · " + bots.filter((item) => item.service.state === "running").length + " 个在线";
     patchContent($("connection-cards"), bots.map((item) => {
       const p = item.bot.platform || "feishu";
-      return '<button class="connection-card" data-card-bot="' + esc(item.bot.id) + '"><div class="connection-card-top">' + platformBadge(p) + status(item.service.state) + '</div><h2>' + esc(item.bot.name) + '</h2><p>' + esc(platforms[p]?.[0] || p) + ' · ' + esc(item.bot.appId) + '</p><div class="connection-card-note">' + esc(item.service.lastError || (item.service.configurationChanged ? "有新配置待应用" : item.service.state === "running" ? "消息服务正常，随时开始对话" : "连接后，即可开始对话")) + '</div><footer><span>' + esc(item.service.model || "默认模型") + '</span><span>管理 ' + icon("chevron") + '</span></footer></button>';
+      const avatarId = avatarPreferences.get(item.bot.id);
+      const avatar = avatarId === "robot" ? platformBadge(p) : '<span class="connection-avatar">' + renderAvatar(avatarId) + platformBadge(p) + '</span>';
+      return '<button class="connection-card" data-card-bot="' + esc(item.bot.id) + '"><div class="connection-card-top">' + avatar + status(item.service.state) + '</div><h2>' + esc(item.bot.name) + '</h2><p>' + esc(platforms[p]?.[0] || p) + ' · ' + esc(item.bot.appId) + '</p><div class="connection-card-note">' + esc(item.service.lastError || (item.service.configurationChanged ? "有新配置待应用" : item.service.state === "running" ? "消息服务正常，随时开始对话" : "连接后，即可开始对话")) + '</div><footer><span>' + esc(item.service.model || "默认模型") + '</span><span>管理 ' + icon("chevron") + '</span></footer></button>';
     }).join("") + '<button class="connection-card add-connection-card" id="add-connection-card"><span class="add-symbol">' + icon("plus") + '</span><h2>添加连接</h2><p>飞书 / 企业微信 / 微信 / 钉钉</p></button>');
   }
 

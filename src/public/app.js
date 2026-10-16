@@ -1,6 +1,7 @@
 import { icon, mountIcons, setIconLabel } from "./icons.js";
 import { setupConnections } from "./connections.js";
 import { renderMarkdown } from "./markdown.js";
+import { createAvatarPreferences, renderAvatar, setupAvatarPicker } from "./avatars.js";
 
 mountIcons();
 const $ = (id) => document.getElementById(id);
@@ -22,6 +23,7 @@ const viewCopy = {
 };
 const checkboxNames = ["preferCli", "allowPlainTextInP2P", "attachmentsEnabled", "streamingCardEnabled", "grantRequesterManageAccess", "sessionThreadsEnabled", "replySkillEnabled", "autoStart"];
 const form = $("bot-form");
+const avatarPreferences = createAvatarPreferences();
 const markupCache = new WeakMap();
 let toastTimer;
 
@@ -117,13 +119,15 @@ function renderOverview() {
   patchContent($("selected-bot-label"), bot ? '<span class="live-dot ' + (selectedBot().service.state === "running" ? "" : "offline") + '"></span>' + escapeHtml(bot.name) : "");
   patchContent($("bot-list"), bots.length ? bots.map((entry) => {
     const active = entry.bot.id === state.selectedBotId;
-    return '<article class="bot-card ' + (active ? "active" : "") + '"><button class="bot-select" data-select-bot="' + escapeHtml(entry.bot.id) + '" aria-pressed="' + active + '"><span class="bot-avatar" aria-hidden="true">' + icon("bot") + '</span><span class="bot-info"><strong>' + escapeHtml(entry.bot.name) + "</strong><small>" + status(entry.service.state) + '</small></span></button>' + (active ? '<div class="bot-actions"><button class="text-button" data-service="' + (entry.service.state === "running" ? "stop" : "start") + '">' + icon(entry.service.state === "running" ? "unplug" : "plug") + (entry.service.state === "running" ? "断开" : "连接") + '</button><button class="text-button" data-configure-bot>' + icon("settings") + '设置</button></div>' : "") + "</article>";
+    return '<article class="bot-card ' + (active ? "active" : "") + '"><button class="bot-select" data-select-bot="' + escapeHtml(entry.bot.id) + '" aria-pressed="' + active + '"><span class="bot-avatar" aria-hidden="true">' + renderAvatar(avatarPreferences.get(entry.bot.id)) + '</span><span class="bot-info"><strong>' + escapeHtml(entry.bot.name) + "</strong><small>" + status(entry.service.state) + '</small></span></button>' + (active ? '<div class="bot-actions"><button class="text-button" data-service="' + (entry.service.state === "running" ? "stop" : "start") + '">' + icon(entry.service.state === "running" ? "unplug" : "plug") + (entry.service.state === "running" ? "断开" : "连接") + '</button><button class="text-button" data-configure-bot>' + icon("settings") + '设置</button></div>' : "") + "</article>";
   }).join("") : empty("还没有机器人", "点击 + 添加第一个连接"));
   const entry = selectedBot();
   patchContent($("bot-connection-status"), entry ? '<div class="connection-indicator"><span class="live-dot ' + (entry.service.state === "running" ? "" : "offline") + '"></span><div><strong>' + escapeHtml(labels[entry.service.state] || entry.service.state) + '</strong><p>' + escapeHtml(entry.bot.name) + ' · ' + escapeHtml(entry.bot.appId) + '</p><p>运行模型：' + escapeHtml(entry.service.model || "跟随默认") + '</p></div></div>' + (entry.service.configurationChanged ? '<div class="configuration-notice">配置已保存，当前连接仍在使用旧配置。<button class="text-button" data-service="restart">应用新配置</button></div>' : "") + '<div class="control-row"><button class="' + (entry.service.state === "running" ? "ghost-button" : "primary-button") + '" data-service="' + (entry.service.state === "running" ? "stop" : "start") + '">' + icon(entry.service.state === "running" ? "unplug" : "plug") + (entry.service.state === "running" ? "断开连接" : "连接机器人") + '</button><button class="ghost-button" data-service="restart">' + icon("refresh") + '重启</button></div>' : '<p class="muted">保存机器人后即可连接。</p>');
   $("connection-label").textContent = "本地服务已连接";
   $("connection-dot").classList.remove("offline");
   fillBotForm();
+  patchContent($("bot-avatar-preview"), renderAvatar(avatarPreferences.get(state.selectedBotId)));
+  $("choose-avatar").disabled = !bot || state.creating;
   renderCli();
   renderSystem();
   connections.render();
@@ -224,10 +228,12 @@ async function renderSessionDetail() {
   const session = payload.session;
   if (!session) return patchContent($("session-detail"), empty("会话已不存在", "刷新后重新选择会话"));
   const history = [...(session.history || [])].reverse();
+  const avatarId = avatarPreferences.get(botId);
+  const assistantAvatar = avatarId === "robot" ? icon("codex") : renderAvatar(avatarId);
   const html = '<div class="conversation-heading"><div><h2>' + escapeHtml(sessionTitle(session)) + '</h2><p>' + escapeHtml(selectedBot()?.bot.name || "") + " · " + (session.sessionKey.startsWith("p2p:") ? "私聊" : "群聊") + " · " + history.length + ' 次对话</p></div><div class="control-row"><button class="text-button" data-copy-session>' + icon("copy") + '复制标识</button><button class="ghost-button" data-compress-session' + (!history.length ? " disabled" : "") + '> ' + icon("compress") + '压缩上下文</button></div></div><div class="conversation-body"><details class="context-summary" data-persist-key="context"><summary>' + icon("chevron") + '上下文摘要<span>' + (session.compressionCount ? "已压缩 " + session.compressionCount + " 次" : "尚未压缩") + '</span></summary><div><pre>' + escapeHtml(session.compressedSummary || "对话变长后，可压缩为摘要，让后续对话更轻量。") + '</pre><div class="metadata"><div><span>会话标识</span><code>' + escapeHtml(session.sessionKey) + '</code></div><div><span>当前线程</span><code>' + escapeHtml(session.threadId || "下次消息创建新线程") + '</code></div><div><span>最近压缩</span><code>' + escapeHtml(formatTime(session.compressedAt)) + '</code></div></div></div></details><div class="history-list">' + (history.length ? history.map((entry, index) => {
     const failed = ["failed", "error"].includes(entry.status) || Boolean(entry.errorText);
     const response = entry.responseText || entry.responseSummary || (failed ? "" : "等待执行结果…");
-    return '<article class="history-entry"><div class="history-time"><time>' + escapeHtml(formatTime(entry.createdAt)) + "</time>" + status(entry.status || "queued") + '</div><div class="message"><span class="message-avatar" aria-hidden="true">' + icon("user") + '</span><div><div class="message-label">请求</div><div class="message-content">' + escapeHtml(entry.userPrompt || "-") + '</div></div></div><div class="message assistant ' + (failed ? "error" : "") + '"><span class="message-avatar" aria-hidden="true">' + icon("codex") + '</span><div><div class="message-label">' + (failed ? "执行失败" : "Codex") + '</div><div class="message-content markdown-content">' + (failed ? escapeHtml(errorDescription(entry.errorText || response)) : renderMarkdown(response)) + (failed ? '<details class="error-details" data-persist-key="error-' + escapeHtml(entry.createdAt || index) + '"><summary>' + icon("chevron") + '错误详情</summary><pre>' + escapeHtml(entry.errorText || response || "未返回错误详情") + "</pre></details>" : "") + "</div></div></div></article>";
+    return '<article class="history-entry"><div class="history-time"><time>' + escapeHtml(formatTime(entry.createdAt)) + "</time>" + status(entry.status || "queued") + '</div><div class="message"><span class="message-avatar" aria-hidden="true">' + icon("user") + '</span><div><div class="message-label">请求</div><div class="message-content">' + escapeHtml(entry.userPrompt || "-") + '</div></div></div><div class="message assistant ' + (failed ? "error" : "") + '"><span class="message-avatar" aria-hidden="true">' + assistantAvatar + '</span><div><div class="message-label">' + (failed ? "执行失败" : "Codex") + '</div><div class="message-content markdown-content">' + (failed ? escapeHtml(errorDescription(entry.errorText || response)) : renderMarkdown(response)) + (failed ? '<details class="error-details" data-persist-key="error-' + escapeHtml(entry.createdAt || index) + '"><summary>' + icon("chevron") + '错误详情</summary><pre>' + escapeHtml(entry.errorText || response || "未返回错误详情") + "</pre></details>" : "") + "</div></div></div></article>";
   }).join("") : empty("暂无历史记录")) + "</div></div>";
   patchContent($("session-detail"), html);
 }
@@ -403,7 +409,18 @@ setInterval(() => {
   if (document.visibilityState !== "visible" || state.busy || $("compress-dialog").open) return;
   refreshAll().catch(() => { $("connection-dot").classList.add("offline"); $("connection-label").textContent = "连接中断，稍后自动重试"; });
 }, 15000);
-const connections = setupConnections({ $, state, api, post, escapeHtml, status, selectedBot, selectBot, setView, refreshAll, showToast, runAction, patchContent });
+const connections = setupConnections({ $, state, api, post, escapeHtml, status, selectedBot, selectBot, setView, refreshAll, showToast, runAction, patchContent, avatarPreferences });
+setupAvatarPicker({ preferences: avatarPreferences, getBotId: () => state.creating ? "" : state.selectedBotId, onChange(persisted) {
+  renderOverview();
+  showToast(persisted ? "头像已更换" : "头像已更换，但浏览器禁止存储，关闭页面后可能丢失", !persisted);
+  void renderSessionDetail().catch((error) => showToast(error.message, true));
+} });
+window.addEventListener("storage", (event) => {
+  if ((!event.key || event.key.startsWith("bridge-avatar:")) && state.overview) {
+    renderOverview();
+    void renderSessionDetail().catch((error) => showToast(error.message, true));
+  }
+});
 document.querySelector('[data-view="connections"]').addEventListener("click", () => connections.showGallery());
 refreshAll().then(() => { if (!state.selectedBotId) setView("connections"); }).catch((error) => {
   $("connection-label").textContent = "管理服务不可用";

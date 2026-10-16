@@ -1,6 +1,23 @@
 # Validation / 验证范围
 
-## Local Gate / 本机验证
+## v1.0.1 Avatar Update / 头像更新
+
+Verified on 2026-10-16, Windows, Node.js 24.11.1:
+
+- 104 automated tests pass, including five avatar tests covering all 16 local
+  designs, safe fallback IDs, independent per-bot persistence, corrupted values,
+  and blocked browser storage.
+- Browser verification confirmed persistence after reload, independent choices
+  for two fictional bots, synchronized conversation avatars, retained official
+  platform badges, Escape dismissal, and restored keyboard focus.
+- Avatar dialog fits widths 390, 780, 1280, and 1920; light and dark screenshots
+  were visually inspected. No page JavaScript errors occurred in these checks.
+- Avatar settings only affect this browser's local management UI. No platform
+  profile, credentials, bot configuration, or live service was modified.
+
+头像更新沿用现有视觉规范，无需重启服务。公开截图使用虚拟机器人与演示数据。
+
+## v1.0.0 Local Gate / 首版本机验证
 
 Release preparation on 2026-10-16, Windows, Node.js 24.11.1:
 
