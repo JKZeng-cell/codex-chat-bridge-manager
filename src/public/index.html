@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Codex 连接 · 本地工作台</title>
+  <meta name="color-scheme" content="light dark" />
+  <script type="module" src="/theme.js"></script>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="机器人与导航">
+      <a class="brand" href="/" aria-label="Codex 连接首页" title="本地桥接工具，非 OpenAI 官方产品"><span class="brand-mark" data-icon="codex-connect" aria-hidden="true"></span><span>Codex 连接<small>本地工作台</small></span></a>
+      <nav class="navigation" aria-label="主导航">
+        <button class="nav-item active" data-view="sessions" aria-current="page"><span class="icon-slot" data-icon="chat" aria-hidden="true"></span>会话<span class="nav-count" id="session-count">0</span></button>
+        <button class="nav-item" data-view="connections"><span class="icon-slot" data-icon="plug" aria-hidden="true"></span>连接</button>
+        <button class="nav-item" data-view="skills"><span class="icon-slot" data-icon="layers" aria-hidden="true"></span>技能</button>
+        <button class="nav-item" data-view="system"><span class="icon-slot" data-icon="server" aria-hidden="true"></span>系统</button>
+      </nav>
+      <div class="sidebar-label"><span>机器人</span><button class="icon-button" id="new-bot" title="添加机器人" aria-label="添加机器人"><span class="icon-slot" data-icon="plus" aria-hidden="true"></span></button></div>
+      <div class="bot-list" id="bot-list" aria-label="机器人列表"></div>
+      <div class="appearance-control"><span class="icon-slot" data-icon="sun" aria-hidden="true"></span><label for="theme-select">外观</label><select id="theme-select" aria-label="界面外观"><option value="light">浅色</option><option value="dark">深色</option><option value="system">跟随系统</option></select></div>
+      <div class="sidebar-footer"><span class="live-dot" id="connection-dot"></span><span id="connection-label">正在连接管理服务</span><button class="icon-button" id="refresh-overview" title="刷新" aria-label="刷新"><span class="icon-slot" data-icon="refresh" aria-hidden="true"></span></button></div>
+    </aside>
+    <div class="main-shell">
+      <header class="topbar"><div class="breadcrumb"><span class="workspace-name">本地工作台</span><span>/</span><strong id="breadcrumb-current">会话</strong></div><div id="summary-strip" class="summary-strip" aria-label="运行概览"></div></header>
+      <main class="workspace">
+        <div class="page-heading"><div><h1 id="page-title">会话管理</h1><p id="page-description">找到对话，查看历史，让上下文保持清晰。</p></div><div class="selected-bot-label" id="selected-bot-label"></div></div>
+        <section class="view" id="view-sessions" aria-label="会话管理">
+          <div class="session-workspace">
+            <aside class="session-browser" aria-label="会话列表">
+              <div class="session-tools">
+                <label class="search-field"><span class="icon-slot" data-icon="search" aria-hidden="true"></span><input id="session-search" type="search" placeholder="搜索对话或内容" aria-label="搜索会话" /></label>
+                <div class="list-heading"><strong>最近会话</strong><select id="session-filter" aria-label="筛选会话"><option value="all">全部状态</option><option value="failed">执行失败</option><option value="completed">执行完成</option></select></div>
+              </div>
+              <div id="session-list" class="session-list"></div>
+            </aside>
+            <div class="session-detail" id="session-detail"><div class="empty-state"><span class="empty-symbol" data-icon="chat" aria-hidden="true"></span><h2>从一段对话开始</h2><p>给已连接的机器人发送消息，<br />就能在这里查看会话与执行记录。</p></div></div>
+          </div>
+        </section>
+        <section class="view" id="view-connections" aria-label="连接管理" hidden>
+          <div id="connection-gallery" class="connection-gallery">
+            <div class="connections-toolbar"><div><h2>我的连接</h2><p class="muted" id="connections-count"></p></div><button class="primary-button" id="add-connection"><span data-icon="plus" class="icon-slot" aria-hidden="true"></span>添加连接</button></div>
+            <div id="connection-cards" class="connection-cards"></div>
+            <p class="connections-footnote">扫码绑定，无需公网地址。每个机器人拥有独立的配置与会话。</p>
+          </div>
+          <div id="connection-detail" class="connection-detail" hidden>
+          <div class="detail-toolbar"><button class="text-button" id="back-connections"><span data-icon="chevron" class="icon-slot back-icon" aria-hidden="true"></span>全部连接</button><button class="text-button remove-connection" id="delete-connection">移除连接</button></div>
+          <div class="connection-grid">
+            <form class="surface editor" id="bot-form">
+              <input type="hidden" name="id" />
+              <div class="surface-heading"><div><h2 id="editor-title">机器人设置</h2><p id="editor-description">配置只保存在本机。</p></div><span class="draft-label" id="draft-label" hidden>未保存</span></div>
+              <div class="editor-body">
+                <div class="editor-grid">
+                  <label class="wide"><span>机器人名称</span><input name="name" placeholder="例如：工作助手" required /></label>
+                  <label class="wide"><span id="app-id-label">App ID</span><input name="appId" placeholder="机器人应用 ID" required autocomplete="off" /></label>
+                  <label class="wide"><span id="app-secret-label">App Secret</span><input name="appSecret" type="password" placeholder="留空保留已保存的密钥" autocomplete="new-password" /></label>
+                  <label class="wide"><span>模型</span><select name="model" title="选择 Codex 模型"><option value="">跟随默认</option></select></label>
+                  <label class="wide"><span>工作目录</span><input name="workdir" placeholder="默认沿用环境配置" /></label>
+                </div>
+                <details class="advanced-settings"><summary><span class="disclosure-icon" data-icon="chevron" aria-hidden="true"></span>高级设置<span>触发方式、权限与运行策略</span></summary><div class="advanced-body">
+                  <div class="editor-grid">
+                    <label><span>命令前缀</span><input name="commandPrefix" value="/codex" /></label>
+                    <label><span>CLI 身份</span><select name="cliIdentity"><option value="bot">机器人</option><option value="user">用户</option></select></label>
+                    <label><span>任务并发</span><input name="maxConcurrentJobs" type="number" min="1" value="1" /></label>
+                    <label class="wide"><span>允许的 chat_id</span><input name="allowedChatIds" placeholder="逗号分隔，留空不限制" /></label>
+                    <label class="wide"><span>允许的 open_id</span><input name="allowedOpenIds" placeholder="逗号分隔，留空不限制" /></label>
+                  </div>
+                  <h3 class="field-heading">运行策略</h3>
+                  <div class="switch-grid">
+                    <label class="toggle"><input type="checkbox" name="preferCli" checked /><span>优先使用 CLI</span></label>
+                    <label class="toggle"><input type="checkbox" name="allowPlainTextInP2P" checked /><span>私聊直接触发</span></label>
+                    <label class="toggle"><input type="checkbox" name="attachmentsEnabled" checked /><span>支持附件</span></label>
+                    <label class="toggle"><input type="checkbox" name="streamingCardEnabled" checked /><span>流式回复</span></label>
+                    <label class="toggle"><input type="checkbox" name="grantRequesterManageAccess" checked /><span>授予请求者管理权限</span></label>
+                    <label class="toggle"><input type="checkbox" name="sessionThreadsEnabled" checked /><span>延续会话上下文</span></label>
+                    <label class="toggle"><input type="checkbox" name="replySkillEnabled" checked /><span>回复技能</span></label>
+                    <label class="toggle"><input type="checkbox" name="autoStart" checked /><span>自动连接</span></label>
+                  </div>
+                </div></details>
+              </div>
+              <div class="editor-actions"><span>配置仅保存在本机</span><button class="ghost-button" type="submit"><span class="icon-slot" data-icon="save" aria-hidden="true"></span>保存</button><button class="primary-button" type="button" id="save-and-start"><span class="icon-slot" data-icon="plug" aria-hidden="true"></span>保存并连接</button></div>
+            </form>
+            <div class="connection-aside">
+              <section class="surface"><div class="surface-heading"><div><h2>连接状态</h2><p>管理当前机器人的消息服务。</p></div></div><div id="bot-connection-status"></div></section>
+              <section class="surface" id="feishu-authorization"><div class="surface-heading"><div><h2>飞书授权</h2><p>机器人绑定与用户授权相互独立。授权后可操作文档、日历等。</p></div></div><div class="connection-steps"><span><b>1</b>配置应用</span><span><b>2</b>飞书授权</span></div><div class="control-row"><button class="ghost-button" id="cli-configure"><span class="icon-slot" data-icon="plug" aria-hidden="true"></span>连接 CLI</button><button class="primary-button" id="cli-authorize"><span class="icon-slot" data-icon="shield" aria-hidden="true"></span>去授权</button><button class="text-button" id="cli-cancel" hidden><span class="icon-slot" data-icon="close" aria-hidden="true"></span>取消</button></div><div id="cli-status" class="cli-status"></div></section>
+              <div class="help-note"><strong>使用提示</strong><p id="connection-help"></p></div>
+            </div>
+          </div>
+          </div>
+        </section>
+        <section class="view" id="view-skills" aria-label="技能管理" hidden>
+          <div class="surface skills-surface"><div class="surface-heading"><div><h2>技能偏好</h2><p>为当前机器人选择优先使用的技能。</p></div><div class="control-row"><button class="ghost-button" data-maintenance="skills"><span class="icon-slot" data-icon="refresh" aria-hidden="true"></span>更新飞书技能</button><button class="primary-button" id="save-skills"><span class="icon-slot" data-icon="save" aria-hidden="true"></span>保存偏好</button></div></div><div class="skill-toolbar"><label class="search-field"><span class="icon-slot" data-icon="search" aria-hidden="true"></span><input type="search" id="skill-search" placeholder="搜索技能" aria-label="搜索技能" /></label><span id="skill-count" class="muted"></span></div><div id="reply-skill-config" class="reply-skill-config"></div><div id="skills-list" class="skills-list"></div></div>
+        </section>
+        <section class="view" id="view-system" aria-label="系统管理" hidden>
+          <div class="system-grid">
+            <section class="surface maintenance-surface"><div class="surface-heading"><div><h2>CLI 与技能更新</h2><p>使用飞书官方更新机制，保持工具与配套技能同步。</p></div><span class="icon-slot" data-icon="layers" aria-hidden="true"></span></div><div id="maintenance-versions" class="muted"></div><p id="maintenance-message" role="status" aria-live="polite"></p><div class="control-row"><button class="ghost-button" data-maintenance="check">检查更新</button><button class="primary-button" data-maintenance="update"><span class="icon-slot" data-icon="refresh" aria-hidden="true"></span>更新 CLI</button><button class="ghost-button" data-maintenance="skills">更新飞书技能</button></div></section>
+            <section class="surface"><div class="surface-heading"><div><h2>服务管理</h2><p>同时管理全部机器人。</p></div></div><div class="control-row"><button class="ghost-button" id="start-all-services"><span class="icon-slot" data-icon="plug" aria-hidden="true"></span>全部连接</button><button class="ghost-button" id="restart-all-services"><span class="icon-slot" data-icon="refresh" aria-hidden="true"></span>全部重启</button><button class="danger-button" id="stop-all-services"><span class="icon-slot" data-icon="unplug" aria-hidden="true"></span>全部断开</button></div><div id="system-status" class="system-status"></div></section>
+            <section class="surface logs-surface"><div class="surface-heading"><div><h2>运行日志</h2><p>显示当前机器人的最近活动。</p></div></div><div id="service-logs" class="log-stream"></div></section>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+  <dialog id="compress-dialog" aria-labelledby="compress-title">
+    <h2 id="compress-title">压缩当前上下文？</h2>
+    <p>将最近对话整理为摘要，下次消息从新线程继续。历史记录会保留。</p>
+    <div class="control-row"><button class="ghost-button" id="cancel-compress"><span class="icon-slot" data-icon="close" aria-hidden="true"></span>取消</button><button class="primary-button" id="confirm-compress"><span class="icon-slot" data-icon="compress" aria-hidden="true"></span>确认压缩</button></div>
+  </dialog>
+  <dialog id="bind-dialog" class="bind-dialog" aria-labelledby="bind-title">
+    <div class="bind-dialog-heading"><div><h2 id="bind-title">添加连接</h2><span class="muted">让 Codex 与你的聊天工具相连</span></div><button class="icon-button" id="close-bind" aria-label="关闭绑定"><span class="icon-slot" data-icon="close" aria-hidden="true"></span></button></div>
+    <div id="binding-platforms"><label class="binding-name-label">连接名称 <span class="muted">可选</span><input id="binding-name" placeholder="例如：我的工作助手" maxlength="80" /></label><div id="platform-options" class="platform-options"></div><div class="bind-manual"><span>已有飞书应用凭证？</span><button class="text-button" id="manual-connection">手动接入</button></div></div>
+    <div id="binding-progress" class="binding-progress" hidden><div id="binding-placeholder" class="binding-placeholder" aria-hidden="true"></div><img id="binding-qr" alt="机器人绑定二维码" width="256" height="256" hidden /><p id="binding-message" role="status" aria-live="polite"></p><small id="binding-expiry" class="muted"></small><small class="binding-permission-note">请在手机上确认。平台可能要求管理员或机器人创建权限。</small><a id="binding-link" target="_blank" rel="noreferrer" class="auth-link" hidden>打开授权页 <span class="icon-slot" data-icon="external" aria-hidden="true"></span></a><button class="ghost-button" id="retry-binding" hidden>重新生成</button><button class="primary-button" id="binding-result" hidden>管理连接</button></div>
+  </dialog>
+  <dialog id="delete-dialog" aria-labelledby="delete-title"><h2 id="delete-title">移除连接？</h2><p>将断开并移除 <strong id="delete-connection-name"></strong>。历史文件会保留在本机，不会注销平台账号。</p><div class="control-row"><button class="ghost-button" id="cancel-delete">取消</button><button class="danger-button" id="confirm-delete">移除</button></div></dialog>
+  <dialog id="update-dialog" aria-labelledby="update-title"><h2 id="update-title">更新 CLI 与飞书技能？</h2><p>官方更新器会更新本机飞书 CLI 及配套 AI 技能。自定义技能不受影响。过程中请勿关闭管理服务，完成后会刷新技能列表。</p><div class="control-row"><button class="ghost-button" id="cancel-update">取消</button><button class="primary-button" id="confirm-update">开始更新</button></div></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

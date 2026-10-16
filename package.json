@@ -1,0 +1,31 @@
+{
+  "name": "codex-chat-bridge-manager",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Third-party Codex chat bot connection manager for Feishu, WeCom, WeChat, and DingTalk.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.8"
+  },
+  "scripts": {
+    "feishu": "node ./scripts/feishu-cli.js",
+    "lark-cli": "node ./scripts/feishu-cli.js",
+    "start": "node src/index.js",
+    "bridge": "node src/bridge-single.js",
+    "test": "node scripts/run-tests.js",
+    "check:release": "node scripts/check-release.js"
+  },
+  "dependencies": {
+    "@larksuite/cli": "^1.0.44",
+    "@larksuiteoapi/node-sdk": "^1.60.0",
+    "@openai/codex": "^0.163.0",
+    "dotenv": "^16.6.1",
+    "@wecom/aibot-node-sdk": "^1.0.6",
+    "dingtalk-stream": "^2.1.4",
+    "qrcode": "^1.5.4"
+  },
+  "overrides": {
+    "axios": "^1.20.0"
+  }
+}

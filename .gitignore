@@ -1,0 +1,15 @@
+node_modules/
+runs/
+.env
+npm-debug.log*
+state/
+pet-runs/
+.env.*
+!.env.example
+*.log
+*.tgz
+*.zip
+coverage/
+.DS_Store
+Thumbs.db
+scripts/feishu_uat_poll.mjs
