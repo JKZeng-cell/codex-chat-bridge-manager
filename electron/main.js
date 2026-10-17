@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { loadManagerConfig } from "../src/config.js";
 import { createManagerServer } from "../src/managerServer.js";
 import { desktopPaths, isAppNavigation, isExternalWebLink } from "./desktop-policy.js";
+import { createShutdownCoordinator } from "./shutdown.js";
 
 const smoke = process.argv.includes("--smoke-test");
 const argument = (name) => process.argv.find((value) => value.startsWith(name + "="))?.slice(name.length + 1);
@@ -17,7 +18,6 @@ app.setName("Codex Chat Bridge Manager");
 let win;
 let server;
 let quitting = false;
-let shutdownPending = false;
 let loginChild;
 const acquired = app.requestSingleInstanceLock();
 if (!acquired) app.quit();
@@ -104,22 +104,17 @@ if (acquired) app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => app.quit());
+const shutdownMessage = (options) => win && !win.isDestroyed() ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options);
+const shutdown = createShutdownCoordinator({
+  inspect: () => server.getShutdownStatus(),
+  stop: async () => { quitting = true; loginChild?.kill(); await server.stop(); },
+  exit: (code) => { quitting = true; if (code === 0) app.quit(); else app.exit(code); },
+  onBlocked: () => shutdownMessage({ type: "warning", message: "仍有任务执行中", detail: "请等待任务或工具更新完成后，再退出或安装更新。服务仍在后台运行。" }),
+  onInspectionError: () => shutdownMessage({ type: "warning", message: "暂时无法确认任务状态", detail: "为保护正在执行的任务，应用未退出。请稍后重试。" }),
+  onStopError: (error) => console.error("Desktop service cleanup failed", error)
+});
 app.on("before-quit", (event) => {
   if (quitting || !server) return;
   event.preventDefault();
-  if (shutdownPending) return;
-  shutdownPending = true;
-  void (async () => {
-    const overview = await (await fetch("http://127.0.0.1:" + server.getAddress().port + "/api/overview")).json();
-    if (overview.bots.some(({ service }) => service.queue.activeCount || service.queue.pendingCount) || overview.maintenance?.state === "running") {
-      if (win?.isDestroyed()) win = null;
-      await dialog.showMessageBox({ type: "warning", message: "仍有任务执行中", detail: "请等待任务或工具更新完成后，再退出应用。服务仍在后台运行。" });
-      shutdownPending = false;
-      return;
-    }
-    quitting = true;
-    loginChild?.kill();
-    await server.stop();
-    app.quit();
-  })().catch((error) => { console.error(error); app.exit(1); });
+  void shutdown.request().catch((error) => console.error("Desktop exit request failed", error));
 });

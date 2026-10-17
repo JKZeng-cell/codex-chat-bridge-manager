@@ -95,7 +95,7 @@ The application UI is currently Chinese; project introductions are bilingual.
 
 ### Windows Desktop App
 
-See the [v1.0.2 release notes](docs/releases/v1.0.2.md) for the latest update.
+See the [v1.0.3 installer fix](docs/releases/v1.0.3.md) for the latest update.
 
 Download the Windows x64 Setup.exe or Portable.exe from
 [GitHub Releases](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest).

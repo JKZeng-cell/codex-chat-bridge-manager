@@ -426,6 +426,10 @@ export function createManagerServer(config, options = {}) {
 
   return {
     getAddress() { return server.address(); },
+    async getShutdownStatus() {
+      const entries = await serviceManager.listStatuses();
+      return { busy: entries.some(({ service }) => service.queue.activeCount || service.queue.pendingCount) || maintenanceManager.getStatus().state === "running" };
+    },
     async start() {
       await new Promise((resolve, reject) => {
         server.once("error", reject);
@@ -442,12 +446,14 @@ export function createManagerServer(config, options = {}) {
       await serviceManager.stopAll();
       await new Promise((resolve, reject) => {
         server.close((error) => {
-          if (error) {
+          if (error && error.code !== "ERR_SERVER_NOT_RUNNING") {
             reject(error);
             return;
           }
           resolve();
         });
+        // Renderer polling or an unfinished HTTP body must not keep an idle app alive.
+        server.closeAllConnections();
       });
     }
   };

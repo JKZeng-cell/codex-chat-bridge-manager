@@ -88,7 +88,7 @@ Windows desktop app or a local browser. See the [complete English guide](README.
 
 ### Windows 桌面版
 
-本次更新见 [v1.0.2 发布说明](docs/releases/v1.0.2.md)。
+本次更新见 [v1.0.3 安装修复说明](docs/releases/v1.0.3.md)。
 
 从 [GitHub Release](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest) 下载
 Windows x64 安装版（Setup.exe）或免安装版（Portable.exe）。内置 Electron、Codex CLI

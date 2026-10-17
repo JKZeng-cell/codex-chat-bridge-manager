@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
 import http from "node:http";
+import { once } from "node:events";
 import { loadManagerConfig } from "../src/config.js";
 import { createManagerServer } from "../src/managerServer.js";
 
@@ -21,6 +22,7 @@ test("manager APIs mask platform credentials, preserve legacy forms, and reject 
   await server.start();
   t.after(async () => { await server.stop(); await fs.rm(dir, { recursive: true, force: true }); });
   const base = "http://127.0.0.1:" + server.getAddress().port;
+  assert.deepEqual(await server.getShutdownStatus(), { busy: false });
   const body = { id: "wecom-one", name: "Team", platform: "wecom", appId: "bot", appSecret: "never-expose-this", autoStart: false };
   let response = await fetch(base + "/api/bots", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   assert.equal(response.status, 200);
@@ -57,4 +59,31 @@ test("manager APIs mask platform credentials, preserve legacy forms, and reject 
   response = await fetch(base + "/api/codex/status", { method: "POST", headers: { Origin: "https://malicious.test" } });
   assert.equal(response.status, 403);
   assert.equal(checks, 1);
+});
+
+test("manager shutdown closes incomplete HTTP requests instead of leaving the desktop process alive", async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "manager-exit-"));
+  const config = loadManagerConfig();
+  config.manager = { host: "127.0.0.1", port: 0 };
+  config.feishu = { ...config.feishu, appId: "", appSecret: "" };
+  config.runtime = { ...config.runtime, managerStateDir: path.join(dir, "manager"), botsStateDir: path.join(dir, "bots") };
+  config.cli = { ...config.cli, configDir: path.join(dir, "cli") };
+  const server = createManagerServer(config, { codexStatus: { getStatus: () => ({}), refresh: async () => ({}) } });
+  await server.start();
+  t.after(async () => { await server.stop(); await fs.rm(dir, { recursive: true, force: true }); });
+  const request = http.request("http://127.0.0.1:" + server.getAddress().port + "/api/bots", { method: "POST", headers: { Expect: "100-continue", "Content-Type": "application/json", "Content-Length": 100 } });
+  request.on("error", () => {});
+  const ready = once(request, "continue");
+  const closed = new Promise((resolve) => request.once("close", resolve));
+  request.flushHeaders();
+  await ready;
+  request.write("{");
+  let timer;
+  try {
+    await Promise.race([
+      server.stop(),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("HTTP shutdown stalled")), 1000); })
+    ]);
+    await closed;
+  } finally { clearTimeout(timer); request.destroy(); }
 });

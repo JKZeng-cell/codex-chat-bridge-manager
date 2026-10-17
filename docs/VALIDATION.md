@@ -1,5 +1,33 @@
 # Validation / 验证范围
 
+## v1.0.3 Installer And Shutdown / 安装与退出
+
+Verified on 2026-10-17, Windows x64:
+
+- All 119 automated tests passed, including scoped process detection, hidden
+  window close requests, active-job protection, and shutdown timeout handling.
+  The production dependency audit reported zero known vulnerabilities.
+- An incomplete HTTP request regression test confirms idle server shutdown does
+  not wait indefinitely for renderer polling or unfinished request bodies.
+- Three consecutive unpacked desktop startup and shutdown checks exited with
+  code zero using separate isolated profiles.
+- An isolated v1.0.2 installation was upgraded to v1.0.3. A native hidden-window
+  fixture accepted normal close when idle and rejected it while simulating a
+  busy job. This is not a live robot-task acceptance test.
+- The final installer preserved a profile sentinel and left a similarly named
+  sibling installation running. Running the installer inside its own target
+  directory returned code 30 without changing the application executable.
+- The final installed and self-extracting portable applications passed isolated
+  startup, bundled-tool, renderer-isolation, health-card, and clean-exit checks.
+  The isolated test installation was then successfully uninstalled.
+- Application archive checks confirmed version 1.0.3, required runtime files,
+  no private runtime roots, and exact correspondence with the changed desktop
+  and server source files. Both Windows executables remain unsigned (`NotSigned`).
+
+所有验证使用隔离目录，不导入真实机器人、会话或飞书授权；网页管理服务未重启。
+任务保护通过自动测试与原生窗口模拟验证，不声称已完成所有平台的真实任务升级验收。
+更新时请先完成任务并退出全部旧版实例，再从下载目录运行新安装包。
+
 ## v1.0.2 System Status / 系统状态
 
 Verified on 2026-10-17, Windows x64:

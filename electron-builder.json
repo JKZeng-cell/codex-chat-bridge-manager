@@ -9,6 +9,6 @@
   "files": ["electron/**", "src/**", "package.json", "LICENSE", "NOTICE.md", "!node_modules/@openai/**", "!node_modules/@larksuite/cli/**"],
   "extraResources": [{ "from": "build/runtime", "to": "tools" }, { "from": "build/icon.png", "to": "icon.png" }],
   "win": { "icon": "build/icon.ico", "target": ["nsis", "portable"], "signAndEditExecutable": true },
-  "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "runAfterFinish": false, "deleteAppDataOnUninstall": false, "artifactName": "CodexChatBridgeManager-${version}-win-x64-Setup.exe" },
+  "nsis": { "include": "build/installer.nsh", "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "runAfterFinish": false, "deleteAppDataOnUninstall": false, "artifactName": "CodexChatBridgeManager-${version}-win-x64-Setup.exe" },
   "portable": { "artifactName": "CodexChatBridgeManager-${version}-win-x64-Portable.exe" }
 }
