@@ -101,6 +101,8 @@ The application UI is currently Chinese; project introductions are bilingual.
 ### Windows Desktop App
 
 See the [v1.0.5 replies and CLI notes](docs/releases/v1.0.5.md). The Release page is authoritative for published packages.
+Local installer repairs are documented in the [v1.0.6 notes](docs/releases/v1.0.6.md).
+See the [v1.0.7 reply repair notes](docs/releases/v1.0.7.md) for DingTalk/WeCom delivery changes.
 
 Download the Windows x64 Setup.exe or Portable.exe from
 [GitHub Releases](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest).
@@ -116,6 +118,11 @@ than placing credentials beside the executable.
 
 Packages are currently unsigned. Windows may show an unknown-publisher warning.
 Allow at least 2 GB of free space on the temporary-files drive for extraction.
+Starting with 1.0.6, Setup requests administrator permission to update legacy
+installations in Program Files; the application itself still runs unelevated.
+When temporary space is low, Setup tries a private directory on the installation
+drive without changing system TEMP settings. Permission/space errors are reported
+before removing the old version; configuration, history and authorization remain.
 Download only from this repository and verify SHA-256 checksums. Wait for active
 tasks and tool updates before quitting; exiting stops the desktop-managed service.
 

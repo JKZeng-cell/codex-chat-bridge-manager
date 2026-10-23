@@ -76,3 +76,34 @@ test("UTF-8 chunking keeps Unicode intact without silently losing long responses
     assert.equal(chunks.some((chunk) => chunk.includes("�")), false);
   }
 });
+
+test("quiet long-running tasks get bounded public progress and the heartbeat stops after final delivery", async () => {
+  const writes = [];
+  const replies = createPlatformReplies({ streamingMode: "replace", async reply(text, finish) { writes.push({ text, finish }); } }, { heartbeatMs: 5 });
+  await replies.acknowledge(true);
+  await pause(20);
+  assert.ok(writes.some((write) => /仍在排队/.test(write.text)));
+  replies.started();
+  await pause(20);
+  assert.ok(writes.some((write) => /仍在处理/.test(write.text)));
+  await replies.finish("final");
+  const count = writes.length;
+  await pause(20);
+  assert.equal(writes.length, count);
+  assert.deepEqual(writes.at(-1), { text: "final", finish: true });
+});
+
+test("hung delivery is aborted, allowing final replies to proceed without a poisoned write chain", async () => {
+  let aborted = false;
+  const writes = [];
+  const replies = createPlatformReplies({ streamingMode: "replace", async reply(text, finish, { signal }) {
+    if (!finish) return new Promise((_, reject) => {
+      signal.addEventListener("abort", () => { aborted = true; reject(signal.reason); }, { once: true });
+    });
+    writes.push(text);
+  } }, { timeoutMs: 5 });
+  await assert.rejects(replies.acknowledge(false), /超时/);
+  await replies.finish("final");
+  assert.equal(aborted, true);
+  assert.deepEqual(writes, ["final"]);
+});

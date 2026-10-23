@@ -26,6 +26,12 @@ export function createPlatformReplies(message, options = {}) {
   let latest = "";
   let closed = false;
   let timer;
+  let heartbeat;
+  let queued = false;
+  let flushQueued = false;
+  let heartbeatQueued = false;
+  let lastWriteAt = Date.now();
+  const createdAt = lastWriteAt;
   let chain = Promise.resolve();
 
   function enqueue(operation) {
@@ -34,17 +40,39 @@ export function createPlatformReplies(message, options = {}) {
     return result;
   }
 
+  async function send(content, finish, metadata = {}) {
+    const controller = new AbortController();
+    let timeout;
+    try {
+      await Promise.race([Promise.resolve().then(() => message.reply(content, finish, { ...metadata, signal: controller.signal })),
+        new Promise((_, reject) => {
+          timeout = setTimeout(() => {
+            const error = new Error("回复发送超时，请在工作台查看结果");
+            controller.abort(error);
+            reject(error);
+          }, options.timeoutMs ?? 20000);
+        })]);
+      lastWriteAt = Date.now();
+    } finally { clearTimeout(timeout); }
+  }
+
+  function queueFlush() {
+    if (closed || flushQueued) return;
+    flushQueued = true;
+    void enqueue(flush).catch((error) => options.onError?.(error)).finally(() => { flushQueued = false; });
+  }
+
   async function flush() {
     if (replace()) {
       const text = latest;
       if (!text || text === sentText) return;
-      await message.reply(text, false);
+      await send(text, false);
       sentText = text;
     } else {
       // Append-only transports must never send mutable snapshots as new messages.
       for (const [id, item] of items) {
         if (!item.completed || sentItems.has(id) || !item.text) continue;
-        await message.reply(item.text, false);
+        await send(item.text, false);
         sentItems.add(id);
         sentText += (sentText ? "\n\n" : "") + item.text;
       }
@@ -52,9 +80,24 @@ export function createPlatformReplies(message, options = {}) {
   }
 
   return {
-    acknowledge(queued) {
-      return enqueue(() => message.reply(queued ? "收到，已加入队列，稍后处理。" : "收到，正在处理…", false));
+    acknowledge(isQueued) {
+      queued = isQueued;
+      if (options.heartbeatMs > 0 && !heartbeat) {
+        heartbeat = setInterval(() => {
+          if (closed || !replace() || heartbeatQueued || Date.now() - lastWriteAt < options.heartbeatMs) return;
+          heartbeatQueued = true;
+          void enqueue(async () => {
+            if (closed) return;
+            const elapsed = Math.max(1, Math.round((Date.now() - createdAt) / 1000));
+            const progress = queued ? `任务仍在排队，已等待 ${elapsed} 秒。` : `仍在处理，已等待 ${elapsed} 秒，完成后会自动回复。`;
+            await send(latest ? latest + "\n\n" + progress : progress, false);
+          }).catch((error) => options.onError?.(error)).finally(() => { heartbeatQueued = false; });
+        }, options.heartbeatMs);
+        heartbeat.unref?.();
+      }
+      return enqueue(() => send(isQueued ? "收到，已加入队列，稍后处理。" : "收到，正在处理…", false));
     },
+    started() { queued = false; },
     onEvent(event) {
       if (closed || !enabled || !["item.started", "item.updated", "item.completed"].includes(event?.type)) return;
       const item = event.item;
@@ -64,12 +107,13 @@ export function createPlatformReplies(message, options = {}) {
       latest = [...items.values()].map((entry) => entry.text).filter(Boolean).join("\n\n");
       if (!timer) timer = setTimeout(() => {
         timer = null;
-        if (!closed) void enqueue(flush).catch((error) => options.onError?.(error));
+        queueFlush();
       }, interval);
     },
     async finish(text, failed = false) {
       closed = true;
       clearTimeout(timer);
+      clearInterval(heartbeat);
       await enqueue(async () => {
         let content = text || "已完成";
         if (!replace() && !failed && sentText) {
@@ -77,7 +121,7 @@ export function createPlatformReplies(message, options = {}) {
           content = content.startsWith(sentText) ? content.slice(sentText.length).trimStart() : "最终回复：\n" + content;
           if (!content) return;
         }
-        await message.reply(content, true, { failed });
+        await send(content, true, { failed });
       });
     }
   };

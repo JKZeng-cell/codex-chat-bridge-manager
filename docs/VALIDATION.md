@@ -1,5 +1,81 @@
 # Validation / 验证范围
 
+## v1.0.7 Reply Delivery Repair / 回复投递修复
+
+Verified locally on 2026-10-23, Windows x64:
+
+- Diagnosis used the running installed 1.0.6 and its local records. A WeCom
+  request contained a completed public answer and turn.completed in the Codex
+  transcript but was marked failed after the ten-minute process timeout.
+  DingTalk had generated answers without recorded transport failures; source
+  inspection found missing card layout/order and INPUTING state, and ignored
+  business rejection inside HTTP 200 responses. Mobile rendering was not
+  directly inspected.
+- All 184 automated tests passed. Native child-process fixtures cover completed
+  turns with hung teardown, event-only final output, split UTF-8 buffers,
+  incomplete/failed turns, normal/legacy exits, and delivery plus queue release
+  through the platform runtime. No real Codex/model request was submitted by
+  these fixtures.
+- Mock platform tests cover DingTalk content order/layout, state transitions,
+  private/group targets, HTTP 200 rejected delivery, terminal stream failure
+  and text fallback; WeCom aging streams, update budgets, bounded SDK ack waits,
+  proactive full-result/overflow delivery and rejected active messages.
+- Receipt sends no longer block execution; quiet native streams receive public
+  waiting feedback. Tests verify heartbeat cleanup, abort signals, terminal
+  ordering, delivery-error visibility and no reasoning-text forwarding.
+- The unpacked and Portable 1.0.7 applications passed isolated desktop smokes with zero
+  inherited bots, working bundled tools, renderer isolation, tray hide/restore,
+  continued background service and protected installer-quit IPC; exit code zero.
+  Packaged application sources match the checkout, including new reply modules;
+  no private runtime roots are present.
+- The 1.0.7 Setup and Portable executables were generated. Setup SHA-256 is
+  651ce504872bcdf86f5c63b14d077a125dbbc83e1a92a20b5c34ecfd0694c087.
+  The automatic in-place install and later normal-launch commands were rejected
+  before execution by the execution policy; no alternate execution route was
+  used. After the user's manual installation and launch, the installed archive
+  and executable verified as 1.0.7 and its running frontend matched the checkout.
+- The existing three bots returned to running state. Two new user-sent live
+  messages completed: DingTalk in 19,740 ms and WeCom in 28,735 ms. Both records
+  have deliveryStatus=sent, terminalEvent=turn.completed, exitCode=0 and bounded
+  post-completion cleanup, with empty queues and no transport errors. The user
+  subsequently confirmed both the DingTalk card body and WeCom reply appeared
+  correctly in their chat clients. This is user-confirmed live acceptance, not
+  an agent-captured screenshot of the phone clients.
+- The current-user Windows uninstall registry still displays 1.0.6 although the
+  installed executable/archive and running code are 1.0.7; it was not manually
+  rewritten. Desktop installers have not been published as GitHub Release assets
+  for this build. Consult GitHub Actions for the current hosted CI results.
+
+本机经用户手动安装和启动后已验证运行 1.0.7；旧的失败请求不会自动重发。
+未修改全局 MCP 配置或真实机器人授权，未改写旧历史，未强制关闭本机服务。
+安装包仍未代码签名。两端正文显示已由用户确认正常。
+
+## v1.0.6 Local Installer Repair / 本机安装修复
+
+Verified locally on 2026-10-23, Windows x64:
+
+- All 168 automated tests passed. A compiled NSIS fixture exercised low-space
+  relaunch to another volume, original parameters including a spaced /D path,
+  staging cleanup, and early exit code 50 when neither location has enough space.
+  This fixture is not a full low-space migration of a populated installation.
+- ACL-denied and writable/new-directory cases verified the permission preflight:
+  denied access returns 40 before app inspection or old-version removal. The
+  one-off probe files are deleted without modifying installed files.
+- PE manifests were inspected in the built and installed files: Setup and
+  Uninstall request administrator permission; the application and Portable
+  remain asInvoker. No global TEMP/TMP setting is changed by the installer.
+- The verified Setup upgraded the real existing installation from 1.0.4 to
+  1.0.6 in place with exit code zero. The uninstall registry reports 1.0.6.
+  All five pre-existing configuration/authorization state files retained their
+  SHA-256 values. No process was force-stopped.
+- The installed archive matches the current application source and bundled
+  tool/skill inventory. An isolated installed-app startup passed with zero
+  inherited bots, 31 built-in platform skills, renderer isolation, tray hide,
+  restore, continued service while hidden, and protected quit IPC; exit code zero.
+  Real bot services were not automatically started for this check.
+- Windows packages remain unsigned. These results verify the local repair;
+  no GitHub publication or hosted CI result is claimed for 1.0.6 here.
+
 ## v1.0.5 Built-In Platform Tools / 内置平台工具
 
 Verified locally on 2026-10-23, Windows x64:

@@ -1,3 +1,17 @@
+!macro customHeader
+  # Legacy per-user installs can live in protected Program Files directories.
+  # Elevate setup/uninstall, not the application executable or its child tools.
+  RequestExecutionLevel admin
+!macroend
+
+!macro preInit
+  !ifndef BUILD_UNINSTALLER
+    !insertmacro bridgePrepareTemp
+  !endif
+!macroend
+
+!include "${BUILD_RESOURCES_DIR}\installer-temp.nsh"
+
 !macro customCheckAppRunning
   !ifdef BUILD_UNINSTALLER
     !define /ifndef BRIDGE_SOURCE_ARG ""
@@ -20,6 +34,13 @@
       Pop $R1
       Pop $R0
       SetErrorLevel 30
+      Quit
+    ${EndIf}
+    ${If} $R0 == 40
+      MessageBox MB_OK|MB_ICONSTOP "无法写入安装目录：$INSTDIR$\r$\n请以管理员身份运行安装包，并检查目录权限。尚未卸载旧版或更改配置。$\r$\nSetup cannot write to the installation directory. Run setup as administrator and check folder permissions. The previous installation and user data have not been changed." /SD IDOK
+      Pop $R1
+      Pop $R0
+      SetErrorLevel 40
       Quit
     ${EndIf}
     ${If} $R0 == 10

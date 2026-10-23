@@ -5,6 +5,7 @@ import { DWClient, TOPIC_ROBOT } from "dingtalk-stream";
 import { readJsonFile, writeJsonFile } from "./fileStore.js";
 import { requestJson, trustedWeixinBase, weixinHeaders } from "./platforms.js";
 import { splitReply } from "./platformReplies.js";
+import { createWecomResponder } from "./wecomReplies.js";
 
 export function createPlatformAdapter(config, handlers, options = {}) {
   const platform = config.bot.platform;
@@ -30,61 +31,85 @@ export function createPlatformAdapter(config, handlers, options = {}) {
     return url.href;
   }
 
-  async function dingToken() {
+  async function dingToken(signal) {
     if (!accessToken || Date.now() >= accessToken.expiresAt) {
       const result = await request("https://api.dingtalk.com/v1.0/oauth2/accessToken", {
         appKey: credentials.appId, appSecret: credentials.appSecret
-      });
+      }, undefined, signal);
       if (!result.accessToken) throw new Error("钉钉没有返回有效令牌");
       accessToken = { value: result.accessToken, expiresAt: Date.now() + (Number(result.expireIn || 7200) - 60) * 1000 };
     }
     return accessToken.value;
   }
 
-  async function dingReply(webhook, content) {
+  async function dingReply(webhook, content, signal) {
     const url = trustedDingWebhook(webhook);
-    const token = await dingToken();
+    const token = await dingToken(signal);
     for (const chunk of splitReply(content)) {
-      await request(url, { msgtype: "text", text: { content: chunk } }, { "x-acs-dingtalk-access-token": token });
+      await request(url, { msgKey: "sampleText", msgParam: JSON.stringify({ content: chunk }) }, { "x-acs-dingtalk-access-token": token }, signal);
     }
   }
 
   function dingResponder(msg) {
     const trackId = crypto.randomUUID();
     let created = false;
+    let inputting = false;
     let fallback = config.feishu.streamingCardEnabled === false;
-    const cardRequest = async (endpoint, body, method = "POST") => requestJson("https://api.dingtalk.com/v1.0/card/" + endpoint,
-      { method, body: JSON.stringify(body), headers: { "x-acs-dingtalk-access-token": await dingToken() } }, fetcher);
+    const cardData = (content, flowStatus) => ({ msgContent: content, flowStatus, staticMsgContent: "",
+      sys_full_json_obj: JSON.stringify({ order: ["msgContent"] }), config: JSON.stringify({ autoLayout: true }) });
+    const cardRequest = async (endpoint, body, method = "POST", signal) => {
+      const result = await requestJson("https://api.dingtalk.com/v1.0/card/" + endpoint,
+        { method, body: JSON.stringify(body), signal, headers: { "x-acs-dingtalk-access-token": await dingToken(signal) } }, fetcher);
+      const rejected = (value, depth = 0) => value && typeof value === "object" && depth < 8 &&
+        (value.success === false || Object.values(value).some((entry) => rejected(entry, depth + 1)));
+      if (rejected(result) || (result.code != null && !["0", "200", "OK", "Success"].includes(String(result.code)))) {
+        throw new Error("钉钉卡片请求被平台拒绝");
+      }
+      return result;
+    };
     return {
       get streamingMode() { return fallback ? "append" : "replace"; },
-      async reply(content, finish = true, { failed = false } = {}) {
+      async reply(content, finish = true, { failed = false, signal } = {}) {
         trustedDingWebhook(msg.sessionWebhook);
-        if (fallback) return dingReply(msg.sessionWebhook, content);
+        if (fallback) return dingReply(msg.sessionWebhook, content, signal);
         try {
           if (!created) {
             await cardRequest("instances", {
-              cardTemplateId: "382e4302-551d-4880-bf29-a30acfab2e71.schema", outTrackId: trackId,
-              cardData: { cardParamMap: { msgContent: content, flowStatus: "1" } }, callbackType: "STREAM",
+              cardTemplateId: "02fcf2f4-5e02-4a85-b672-46d1f715543e.schema", outTrackId: trackId,
+              cardData: { cardParamMap: cardData(content, "1") }, callbackType: "STREAM",
               imGroupOpenSpaceModel: { supportForward: false }, imRobotOpenSpaceModel: { supportForward: false }
-            });
+            }, "POST", signal);
             const group = String(msg.conversationType) === "2";
             const spaceId = group ? msg.conversationId : msg.senderStaffId;
             if (!spaceId) throw new Error("钉钉缺少卡片投放目标");
             await cardRequest("instances/deliver", { outTrackId: trackId, userIdType: 1,
               openSpaceId: "dtv1.card//" + (group ? "IM_GROUP." : "IM_ROBOT.") + spaceId,
-              ...(group ? { imGroupOpenDeliverModel: { robotCode: credentials.appId } } : { imRobotOpenDeliverModel: { spaceType: "IM_ROBOT" } })
-            });
+              ...(group ? { imGroupOpenDeliverModel: { robotCode: credentials.appId } } : {
+                imRobotOpenDeliverModel: { spaceType: "IM_ROBOT", robotCode: credentials.appId, extension: { dynamicSummary: "true" } }
+              })
+            }, "POST", signal);
             created = true;
           }
-          await cardRequest("streaming", { outTrackId: trackId, guid: crypto.randomUUID(), key: "msgContent",
-            content, isFull: true, isFinalize: finish, isError: failed }, "PUT");
+          if (!inputting) {
+            await cardRequest("instances", { outTrackId: trackId,
+              cardData: { cardParamMap: cardData(content, "2") }, cardUpdateOptions: { updateCardDataByKey: true } }, "PUT", signal);
+            inputting = true;
+          }
+          try {
+            await cardRequest("streaming", { outTrackId: trackId, guid: crypto.randomUUID(), key: "msgContent",
+              content, isFull: true, isFinalize: finish, isError: failed }, "PUT", signal);
+          } catch (error) {
+            if (!finish || signal?.aborted) throw error;
+            handlers.onError(new Error("钉钉流式结束失败，正在提交完整正文和最终状态"));
+          }
           if (finish) await cardRequest("instances", { outTrackId: trackId,
-            cardData: { cardParamMap: { msgContent: content, flowStatus: failed ? "5" : "3" } },
-            cardUpdateOptions: { updateCardDataByKey: true } }, "PUT");
-        } catch {
+            cardData: { cardParamMap: cardData(content, failed ? "5" : "3") },
+            cardUpdateOptions: { updateCardDataByKey: true } }, "PUT", signal);
+        } catch (error) {
+          if (signal?.aborted) throw error;
           fallback = true;
           handlers.onError(new Error("钉钉流式卡片不可用，已回退文本；请检查互动卡片和 AI 流式更新权限"));
-          await dingReply(msg.sessionWebhook, content);
+          await dingReply(msg.sessionWebhook, content, signal);
         }
       }
     };
@@ -143,14 +168,10 @@ export function createPlatformAdapter(config, handlers, options = {}) {
           client.on("message", (frame) => {
             const body = frame.body || {};
             const text = body.text?.content || body.voice?.content || (body.mixed?.msg_item || []).map((item) => item.text?.content || "").join("\n");
-            const streamId = crypto.randomUUID();
+            const responder = createWecomResponder(client, frame, { ...options.wecomReplyOptions, onError: handlers.onError });
             deliver({ id: body.msgid, userId: body.from?.userid, chatId: body.chatid || body.from?.userid,
               chatType: body.chattype === "group" ? "group" : "p2p", text, streamingMode: "replace",
-              reply: async (content, finish = true) => {
-                const chunks = splitReply(content);
-                await client.replyStream(frame, streamId, chunks[0] || "已完成", finish);
-                if (finish) for (const chunk of chunks.slice(1)) await client.replyStream(frame, crypto.randomUUID(), chunk, true);
-              } });
+              reply: (content, finish) => responder.reply(content, finish) });
           });
           client.connect();
         } else if (platform === "dingtalk") {

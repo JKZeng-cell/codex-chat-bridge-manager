@@ -3,6 +3,8 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import crypto from "node:crypto";
+import { StringDecoder } from "node:string_decoder";
+import { finished } from "node:stream/promises";
 
 import { cleanCodexCliNoise } from "./utils.js";
 import { PLATFORM_CLIS, platformCliDirectory, platformCliEnvironment, resolvePlatformCli } from "./platformCli.js";
@@ -80,7 +82,7 @@ export class CodexRunError extends Error {
   }
 }
 
-export function createCodexRunner(config) {
+export function createCodexRunner(config, options = {}) {
   return {
     async run({ prompt, messageId, onEvent, onStderr, resumeSessionId }) {
       await fsp.mkdir(config.runtime.logDir, { recursive: true });
@@ -98,6 +100,37 @@ export function createCodexRunner(config) {
       let stdoutTail = "";
       let stdoutBuffer = "";
       let threadId = resumeSessionId || "";
+      let terminal = "";
+      let lastAgentMessage = "";
+      let completeProcess;
+      let completionTimer;
+      let timeoutTimer;
+      let exitDrainTimer;
+      let cleanupRequested = false;
+      const decoder = new StringDecoder("utf8");
+
+      const parseEvent = (line) => {
+        try {
+          const event = JSON.parse(line);
+          if (event?.type === "thread.started" && typeof event.thread_id === "string") threadId = event.thread_id;
+          if (event.type === "item.completed" && event.item?.type === "agent_message" &&
+              typeof event.item.text === "string" && event.item.phase !== "commentary") lastAgentMessage = event.item.text;
+          if (["turn.completed", "turn.failed"].includes(event.type) && !terminal) {
+            terminal = event.type;
+            clearTimeout(timeoutTimer);
+            // The turn is over even when CLI/MCP teardown keeps the process alive.
+            completionTimer = setTimeout(() => {
+              if (child.exitCode === null && child.signalCode === null) {
+                cleanupRequested = child.kill();
+              }
+              completeProcess(terminal === "turn.completed" ? 0 : 1);
+            }, options.completionGraceMs ?? 1000);
+          }
+          onEvent?.(event);
+        } catch {
+          // Non-JSON diagnostics belong in the private transcript only.
+        }
+      };
 
       const platform = config.bot?.platform;
       const env = PLATFORM_CLIS[platform] ? platformCliEnvironment(config, config.bot, process.env,
@@ -118,7 +151,7 @@ export function createCodexRunner(config) {
         transcriptStream.write(chunk);
         stdoutTail = captureTail(stdoutTail, chunk);
 
-        stdoutBuffer += chunk.toString("utf8");
+        stdoutBuffer += decoder.write(chunk);
         const lines = stdoutBuffer.split(/\r?\n/);
         stdoutBuffer = lines.pop() || "";
 
@@ -128,15 +161,7 @@ export function createCodexRunner(config) {
             continue;
           }
 
-          try {
-            const event = JSON.parse(trimmed);
-            if (event?.type === "thread.started" && typeof event.thread_id === "string") {
-              threadId = event.thread_id;
-            }
-            onEvent?.(event);
-          } catch {
-            // Keep non-JSON lines in the transcript only.
-          }
+          parseEvent(trimmed);
         }
       });
 
@@ -147,7 +172,18 @@ export function createCodexRunner(config) {
       });
 
       const exitCode = await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => {
+        let settled = false;
+        completeProcess = (code) => {
+          if (settled) return;
+          settled = true;
+          stdoutBuffer += decoder.end();
+          const finalLine = stdoutBuffer.trim();
+          stdoutBuffer = "";
+          if (finalLine) parseEvent(finalLine);
+          resolve(terminal === "turn.completed" ? 0 : terminal === "turn.failed" ? 1 : code);
+        };
+        timeoutTimer = setTimeout(() => {
+          settled = true;
           child.kill();
           reject(
             new CodexRunError("Codex execution timed out", {
@@ -161,7 +197,9 @@ export function createCodexRunner(config) {
         }, config.codex.timeoutMs);
 
         child.on("error", (error) => {
-          clearTimeout(timer);
+          if (settled) return;
+          settled = true;
+          clearTimeout(timeoutTimer);
           reject(
             new CodexRunError(`Failed to start Codex: ${error.message}`, {
               outputPath,
@@ -173,34 +211,41 @@ export function createCodexRunner(config) {
           );
         });
 
-        child.on("close", (code) => {
-          clearTimeout(timer);
-          const finalLine = stdoutBuffer.trim();
-          if (finalLine) {
-            try {
-              const event = JSON.parse(finalLine);
-              if (event?.type === "thread.started" && typeof event.thread_id === "string") {
-                threadId = event.thread_id;
-              }
-              onEvent?.(event);
-            } catch {
-              // Keep trailing non-JSON lines in the transcript only.
-            }
-          }
-          resolve(code ?? 1);
+        child.on("exit", (code) => {
+          if (settled) return;
+          clearTimeout(timeoutTimer);
+          // Descendants can retain stdio after the CLI exits; do not wait forever.
+          exitDrainTimer = setTimeout(() => completeProcess(code ?? 1), options.exitDrainMs ?? 250);
         });
-      }).finally(() => {
+        child.on("close", (code) => completeProcess(code ?? 1));
+      }).finally(async () => {
+        clearTimeout(timeoutTimer);
+        clearTimeout(completionTimer);
+        clearTimeout(exitDrainTimer);
+        if (child.killed && child.exitCode === null && child.signalCode === null) {
+          await new Promise((resolve) => {
+            const done = () => { clearTimeout(timer); child.removeListener("exit", done); resolve(); };
+            const timer = setTimeout(done, options.cleanupTimeoutMs ?? 1000);
+            child.once("exit", done);
+          });
+        }
+        child.stdout.destroy();
+        child.stderr.destroy();
         transcriptStream.end();
+        await finished(transcriptStream);
       });
 
       const durationMs = Date.now() - startedAt;
-      const message = await fsp.readFile(outputPath, "utf8").catch(() => "");
+      const output = await fsp.readFile(outputPath, "utf8").catch(() => "");
+      const message = (terminal === "turn.completed" ? lastAgentMessage.trim() : "") || output.trim();
 
       const metadata = {
         runId,
         prompt,
         durationMs,
         exitCode,
+        terminalEvent: terminal,
+        cleanupRequested,
         command,
         args,
         threadId,

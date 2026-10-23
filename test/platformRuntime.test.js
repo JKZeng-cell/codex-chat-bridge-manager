@@ -10,6 +10,7 @@ import { createBotStore } from "../src/botStore.js";
 import { compressSessionRecord } from "../src/sessionCompression.js";
 import { createPlatformAdapter } from "../src/platformAdapters.js";
 import { EventEmitter } from "node:events";
+import { createCodexRunner } from "../src/codexRunner.js";
 
 async function fixture(t, runner, options = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "platform-runtime-"));
@@ -36,6 +37,22 @@ async function fixture(t, runner, options = {}) {
   await runtime.start();
   return { config, store, runtime, handlers, replies, message, drain, dir };
 }
+
+test("a native completed-but-hung Codex process delivers its final reply and releases the platform queue", async (t) => {
+  let f;
+  f = await fixture(t, { run(input) { return createCodexRunner(f.config, { completionGraceMs: 30 }).run(input); } }, { replyIntervalMs: 1 });
+  f.config.codex = { cliMode: "local", cliBin: process.execPath, localCliPath: path.resolve("test/fixtures/codex-process.mjs"),
+    workdir: f.dir, addDirs: [], extraArgs: ["--fixture-scenario", "complete-hang"], timeoutMs: 5000 };
+  f.config.runtime.logDir = path.join(f.dir, "runs");
+  await f.handlers.onMessage({ ...f.message("native-hang", "fixture"), streamingMode: "replace" });
+  await f.drain();
+  const record = (await f.store.get("p2p:chat-one")).history[0];
+  assert.equal(record.status, "completed");
+  assert.equal(record.deliveryStatus, "sent");
+  assert.equal(f.replies.at(-1).content, "最终答复：中文🙂");
+  assert.equal(f.replies.at(-1).finish, true);
+  await f.runtime.stop();
+});
 
 test("new platform runtime deduplicates messages, resumes per-chat threads, and stores readable history", async (t) => {
   const calls = [];
@@ -129,8 +146,27 @@ test("failed acknowledgement and final delivery do not rerun Codex or mark compl
   const record = (await f.store.get("p2p:chat-one")).history[0];
   assert.equal(count, 1);
   assert.equal(record.status, "completed");
+  assert.equal(record.deliveryStatus, "failed");
   assert.match(record.deliveryError, /unavailable transport/);
   assert.match(record.deliveryWarning, /接收确认/);
+  await f.runtime.stop();
+});
+
+test("slow receipt delivery does not delay execution or pin the task queue after bounded timeout", async (t) => {
+  let ran = false;
+  const f = await fixture(t, { async run() { ran = true; return { message: "answer" }; } }, { replyTimeoutMs: 20 });
+  const message = { ...f.message("slow-ack", "request"), async reply(content, finish, { signal }) {
+    if (!finish) return new Promise((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+    f.replies.push({ content, finish });
+  } };
+  await f.handlers.onMessage(message);
+  for (let i = 0; i < 10 && !ran; i++) await new Promise((resolve) => setTimeout(resolve, 1));
+  assert.equal(ran, true);
+  await f.drain();
+  const record = (await f.store.get("p2p:chat-one")).history[0];
+  assert.equal(record.status, "completed");
+  assert.equal(record.deliveryStatus, "sent");
+  assert.equal(f.replies.at(-1).content, "answer");
   await f.runtime.stop();
 });
 

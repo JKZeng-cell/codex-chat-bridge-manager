@@ -94,6 +94,8 @@ Windows desktop app or a local browser. See the [complete English guide](README.
 ### Windows 桌面版
 
 本次功能更新见 [v1.0.5 回复与 CLI 说明](docs/releases/v1.0.5.md)。已发布安装包以 Release 页面为准。
+本机安装修复见 [v1.0.6 安装修复说明](docs/releases/v1.0.6.md)。
+钉钉卡片与企业微信等待修复见 [v1.0.7 回复修复说明](docs/releases/v1.0.7.md)。
 
 从 [GitHub Release](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest) 下载
 Windows x64 安装版（Setup.exe）或免安装版（Portable.exe）。内置 Electron、Codex CLI
@@ -106,6 +108,9 @@ Codex 授权；免安装版同样使用上述数据目录，不将凭据写在�
 
 当前应用包未进行代码签名，Windows 可能显示来源提示。仅从本仓库下载并核对 SHA-256。
 安装和免安装版解压建议临时目录所在磁盘至少保留 2 GB 可用空间。
+安装版从 1.0.6 起会请求管理员权限，以兼容原先装在 Program Files 中的版本；应用日常运行不提权。
+安装临时空间不足时会尝试使用安装目录所在磁盘的独立临时目录，不修改系统 TEMP 设置。
+若提示权限或空间不足，请先解决对应问题，不必反复结束进程；升级保留配置、会话与授权。
 最小化或点击窗口关闭按钮会隐藏到系统托盘，机器人服务继续在后台运行。
 点击或双击托盘图标可恢复工作台；右键托盘选择「退出」，或使用「应用 → 退出」可停止服务。
 退出时仍会保护执行中的任务与工具更新，请先等待完成。系统托盘不可用时，关闭窗口会正常退出，

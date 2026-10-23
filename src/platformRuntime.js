@@ -19,6 +19,7 @@ export function createPlatformRuntime(config, options = {}) {
   let accepting = 0;
   let status = { state: "stopped", startedAt: "", stoppedAt: "", lastError: "", lastMessageAt: "" };
   function onState(state, message = "") {
+    if (status.state === state && (!message || status.lastError === message)) return;
     status = { ...status, state, ...(state === "running" ? { lastError: "" } : message ? { lastError: message } : {}) };
     options.onStateChange?.({ state, message });
   }
@@ -58,16 +59,19 @@ export function createPlatformRuntime(config, options = {}) {
     const replies = createPlatformReplies(message, {
       enabled: config.feishu.streamingCardEnabled,
       intervalMs: options.replyIntervalMs,
+      heartbeatMs: options.replyHeartbeatMs ?? 20000,
+      timeoutMs: options.replyTimeoutMs,
       onError: (error) => { void update({ deliveryWarning: "部分流式回复未送达" }).catch(onError); onError(error); }
     });
-    const acknowledgement = replies.acknowledge(outstanding > 1).catch(async (error) => {
+    void replies.acknowledge(outstanding > 1).catch(async (error) => {
       onError(error);
       await update({ deliveryWarning: "接收确认未送达" }).catch(onError);
     });
     const previous = chains.get(sessionKey) || Promise.resolve();
     const task = previous.catch(() => {}).then(() => queue.push(async () => {
       try {
-        await acknowledgement;
+        // Receipt delivery runs in parallel; a slow transport must not block Codex.
+        replies.started();
         await update({ status: "running" });
         const record = await store.get(sessionKey);
         const skills = config.bot.preferredSkills || [];
@@ -77,9 +81,9 @@ export function createPlatformRuntime(config, options = {}) {
           messageId: id, resumeSessionId: config.feishu.sessionThreadsEnabled ? record?.threadId : undefined,
           onEvent: (event) => replies.onEvent(event) });
         await update({ status: "completed", completedAt: new Date().toISOString(), responseText: result.message,
-          responseSummary: (result.message || "").slice(0, 320), durationMs: result.durationMs }, result.threadId);
-        try { await replies.finish(result.message || "已完成"); }
-        catch (error) { await update({ deliveryError: error.message }); onError(error); }
+          responseSummary: (result.message || "").slice(0, 320), durationMs: result.durationMs, deliveryStatus: "pending" }, result.threadId);
+        try { await replies.finish(result.message || "已完成"); await update({ deliveryStatus: "sent" }); }
+        catch (error) { await update({ deliveryStatus: "failed", deliveryError: error.message }); onError(error); }
       } catch (error) {
         const detail = (error.details && getCodexFailureMessage(error.details)) || error.message;
         await update({ status: "failed", completedAt: new Date().toISOString(), errorText: detail });

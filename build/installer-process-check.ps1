@@ -1,11 +1,29 @@
 param(
-  [ValidateSet('check', 'close')][string]$Action = 'check',
+  [ValidateSet('check', 'close', 'permissions')][string]$Action = 'check',
   [string]$InstallDirectory,
   [string]$InstallerPath,
   [ValidateRange(1, 60)][int]$WaitSeconds = 20,
   [switch]$LibraryOnly
 )
 $ErrorActionPreference = 'Stop'
+
+function Assert-BridgeInstallWritable([string]$Directory) {
+  $parent = [IO.Path]::GetFullPath($Directory)
+  while (-not [IO.Directory]::Exists($parent)) {
+    if ([IO.File]::Exists($parent)) { throw 'Installation path is a file.' }
+    $next = [IO.Path]::GetDirectoryName($parent)
+    if (-not $next -or $next -eq $parent) { throw 'Installation volume is unavailable.' }
+    $parent = $next
+  }
+  $probe = [IO.Path]::Combine($parent, '.bridge-permission-' + [Guid]::NewGuid().ToString('N') + '.tmp')
+  $stream = $null
+  try {
+    # Probe actual access without touching any application or user-data file.
+    $stream = [IO.FileStream]::new($probe, [IO.FileMode]::CreateNew, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None, 1, [IO.FileOptions]::DeleteOnClose)
+  } finally {
+    if ($stream) { $stream.Dispose() }
+  }
+}
 
 function Select-BridgeInstallProcesses([object[]]$Processes, [string]$Directory) {
   $root = [IO.Path]::GetFullPath($Directory).TrimEnd('\', '/')
@@ -75,6 +93,8 @@ if ($LibraryOnly) { return }
 try {
   if (-not $InstallDirectory -or -not [IO.Path]::IsPathRooted($InstallDirectory)) { throw 'Invalid installation directory.' }
   if (Test-BridgeInstallerSource $InstallDirectory $InstallerPath) { exit 30 }
+  Assert-BridgeInstallWritable $InstallDirectory
+  if ($Action -eq 'permissions') { exit 0 }
   $processes = @(Get-BridgeInstallProcesses $InstallDirectory)
   if ($processes.Count -eq 0) { exit 0 }
   if ($Action -eq 'check') { exit 10 }
@@ -103,6 +123,10 @@ try {
   } while ([DateTime]::UtcNow -lt $deadline)
   exit 10
 } catch {
+  if ($_.Exception.GetBaseException() -is [UnauthorizedAccessException]) {
+    Write-Error 'Installation directory is not writable. Administrator permission is required.' -ErrorAction Continue
+    exit 40
+  }
   Write-Error $_ -ErrorAction Continue
   exit 20
 }

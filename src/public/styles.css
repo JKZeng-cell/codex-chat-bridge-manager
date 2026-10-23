@@ -189,6 +189,7 @@ dialog .avatar-storage-note { margin: 18px 0 0; font-size: 11px; color: var(--mu
 .message.error .message-content { padding: 12px 15px; border: 1px solid color-mix(in srgb, var(--bad) 20%, transparent); border-radius: 10px; background: var(--bad-soft); color: var(--bad); }
 .error-details { margin-top: 9px; color: var(--bad); font-size: 11px; }
 .error-details pre { font-size: 11px; }
+.delivery-notice { margin: 10px 0 0; color: var(--warning); font-size: 11px; overflow-wrap: anywhere; }
 .markdown-content { white-space: normal; }
 .markdown-content > :first-child { margin-top: 0; }
 .markdown-content > :last-child { margin-bottom: 0; }
