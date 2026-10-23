@@ -1,5 +1,9 @@
 import path from "node:path";
 
+export function isInstallerQuitRequest(argv) {
+  return argv.includes("--quit-for-update");
+}
+
 export function desktopPaths(userData, resources, packaged) {
   const tools = packaged ? path.join(resources, "tools") : path.join(resources, "build", "runtime");
   return {

@@ -1,12 +1,13 @@
-import { app, BrowserWindow, Menu, dialog, shell, session } from "electron";
+import { app, BrowserWindow, Menu, Tray, dialog, shell, session } from "electron";
 import fs from "node:fs/promises";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { loadManagerConfig } from "../src/config.js";
 import { createManagerServer } from "../src/managerServer.js";
-import { desktopPaths, isAppNavigation, isExternalWebLink } from "./desktop-policy.js";
+import { desktopPaths, isAppNavigation, isExternalWebLink, isInstallerQuitRequest } from "./desktop-policy.js";
 import { createShutdownCoordinator } from "./shutdown.js";
+import { createTrayController } from "./tray.js";
 
 const smoke = process.argv.includes("--smoke-test");
 const argument = (name) => process.argv.find((value) => value.startsWith(name + "="))?.slice(name.length + 1);
@@ -19,9 +20,16 @@ let win;
 let server;
 let quitting = false;
 let loginChild;
+let tray;
+const installerQuit = isInstallerQuitRequest(process.argv);
 const acquired = app.requestSingleInstanceLock();
-if (!acquired) app.quit();
-app.on("second-instance", () => { if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus(); } });
+if (!acquired || installerQuit) app.quit();
+app.on("second-instance", (_event, argv) => {
+  if (isInstallerQuitRequest(argv)) app.quit();
+  else tray?.show();
+});
+app.on("activate", () => tray?.show());
+app.on("will-quit", () => tray?.destroy());
 
 async function openExternal(value) {
   if (!isExternalWebLink(value)) return;
@@ -47,18 +55,38 @@ async function smokeTest(paths, origin) {
   result.userData = app.getPath("userData");
   result.origin = origin;
   result.packaged = app.isPackaged;
+  if (!tray.available()) throw new Error("Desktop tray unavailable.");
+  tray.show();
+  const screenshot = await win.webContents.capturePage();
+  const minimized = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Tray minimize timed out")), 3000);
+    win.once("minimize", () => { clearTimeout(timer); resolve(); });
+  });
+  win.minimize();
+  await minimized;
+  result.tray = { minimizedToTray: !win.isVisible() && !win.isDestroyed() };
+  tray.show();
+  result.tray.restored = win.isVisible() && !win.isMinimized();
+  win.close();
+  result.tray.closeKeepsService = !win.isDestroyed() && !win.isVisible() && (await fetch(origin)).ok;
+  if (!Object.values(result.tray).every(Boolean)) throw new Error("Desktop tray behavior smoke failed.");
   if (result.hasNode || result.bots !== 0 || !result.systemVisible) throw new Error("Desktop isolation smoke failed.");
   if (result.health.managerState !== "running" || result.health.healthCards !== 2 || !result.health.codexCheckedAt || !result.codex.includes(result.health.codexVersion) || !result.health.codexVersion || result.health.footer !== "Powered by JKZeng") throw new Error("Desktop system status smoke failed.");
   const report = argument("--smoke-report");
   if (report) {
     await fs.writeFile(report, JSON.stringify(result, null, 2));
-    await fs.writeFile(report + ".png", (await win.webContents.capturePage()).toPNG());
+    await fs.writeFile(report + ".png", screenshot.toPNG());
   }
   console.log("Desktop smoke passed", JSON.stringify(result));
-  app.quit();
+  if (process.argv.includes("--smoke-installer-quit")) {
+    const args = [...(app.isPackaged ? [] : [app.getAppPath()]), "--quit-for-update", "--smoke-test", "--smoke-data=" + app.getPath("userData")];
+    const child = spawn(process.execPath, args, { windowsHide: true, stdio: "ignore" });
+    child.once("error", error => { console.error(error); app.exit(1); });
+    setTimeout(() => { console.error("Installer quit IPC timed out"); app.exit(1); }, 10000).unref();
+  } else app.quit();
 }
 
-if (acquired) app.whenReady().then(async () => {
+if (acquired && !installerQuit) app.whenReady().then(async () => {
   const data = app.getPath("userData");
   const paths = desktopPaths(data, app.isPackaged ? process.resourcesPath : app.getAppPath(), app.isPackaged);
   for (const dir of [data, paths.state, paths.logs, paths.workdir, path.dirname(paths.cli)]) await fs.mkdir(dir, { recursive: true });
@@ -80,7 +108,18 @@ if (acquired) app.whenReady().then(async () => {
   });
   win = new BrowserWindow({ width: 1440, height: 1000, minWidth: 880, minHeight: 640, show: false, title: "Codex 连接", backgroundColor: "#171717", icon: app.isPackaged ? path.join(process.resourcesPath, "icon.png") : path.join(app.getAppPath(), "build", "icon.png"), webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, spellcheck: false } });
   win.webContents.setWindowOpenHandler(({ url }) => { void openExternal(url); return { action: "deny" }; });
-  win.on("close", (event) => { if (!quitting) { event.preventDefault(); app.quit(); } });
+  const icon = app.isPackaged ? path.join(process.resourcesPath, process.platform === "win32" ? "icon.ico" : "icon.png") : path.join(app.getAppPath(), "build", process.platform === "win32" ? "icon.ico" : "icon.png");
+  tray = createTrayController({
+    createTray: image => new Tray(image), buildMenu: items => Menu.buildFromTemplate(items), icon,
+    getWindow: () => win, isQuitting: () => quitting, quit: () => app.quit(),
+    onHidden: item => {
+      if (!smoke && process.platform === "win32") item.displayBalloon({ title: "已在后台运行", content: "机器人服务继续运行。点击托盘图标打开工作台，右键选择“退出”可停止服务。" });
+    },
+    onError: error => console.error("Desktop tray unavailable", error)
+  });
+  const hasTray = tray.start();
+  win.on("close", event => tray.close(event));
+  win.on("minimize", () => tray.hide());
   win.webContents.on("will-navigate", (event, url) => { if (!isAppNavigation(url, origin)) { event.preventDefault(); void openExternal(url); } });
   const login = () => {
     if (loginChild) return;
@@ -90,12 +129,13 @@ if (acquired) app.whenReady().then(async () => {
     void dialog.showMessageBox(win, { message: "请在浏览器中完成 Codex 登录", detail: "官方 Codex CLI 将打开授权页面。不会复制或上传你已有的本机凭据。" });
   };
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: "应用", submenu: [{ label: "Codex 登录", click: login }, { label: "打开应用数据目录", click: () => { void shell.openPath(data); } }, { type: "separator" }, { role: "quit", label: "退出" }] },
+    { label: "应用", submenu: [{ label: "最小化到托盘", enabled: hasTray, click: () => tray.hide() }, { type: "separator" }, { label: "Codex 登录", click: login }, { label: "打开应用数据目录", click: () => { void shell.openPath(data); } }, { type: "separator" }, { role: "quit", label: "退出" }] },
     { label: "编辑", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
     { label: "视图", submenu: [{ role: "reload", label: "刷新" }, { role: "resetZoom", label: "实际大小" }, { role: "zoomIn", label: "放大" }, { role: "zoomOut", label: "缩小" }, { role: "togglefullscreen", label: "全屏" }] }
   ]));
   win.once("ready-to-show", () => { if (!smoke) win.show(); });
   await win.loadURL(origin);
+  if (!hasTray && !smoke) void dialog.showMessageBox(win, { type: "warning", message: "系统托盘暂不可用", detail: "关闭窗口将退出应用，不会隐藏到后台。" });
   if (smoke) await smokeTest(paths, origin);
 }).catch(async (error) => {
   if (smoke) { const report = argument("--smoke-report"); if (report) await fs.writeFile(report, JSON.stringify({ error: error.message })); }
@@ -104,7 +144,10 @@ if (acquired) app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => app.quit());
-const shutdownMessage = (options) => win && !win.isDestroyed() ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options);
+const shutdownMessage = (options) => {
+  tray?.show();
+  return win && !win.isDestroyed() ? dialog.showMessageBox(win, options) : dialog.showMessageBox(options);
+};
 const shutdown = createShutdownCoordinator({
   inspect: () => server.getShutdownStatus(),
   stop: async () => { quitting = true; loginChild?.kill(); await server.stop(); },

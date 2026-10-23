@@ -1,5 +1,35 @@
 # Validation / 验证范围
 
+## v1.0.4 System Tray / 托盘后台运行
+
+Verified locally on 2026-10-23, Windows x64:
+
+- All 128 automated tests passed, including tray hide/restore, explicit quit,
+  unavailable-tray fallback, legacy window close and tray-aware installer IPC.
+  The production dependency audit reported zero known vulnerabilities.
+- Development, unpacked, portable and installed desktop checks exercised actual
+  window minimize, close-to-tray, restoration and an HTTP request while hidden.
+  All kept the local service alive and exited cleanly via the dedicated
+  single-instance installer-quit request.
+- A native tray-app fixture ignores window close and protects a simulated busy
+  job; the installer helper correctly requests quit IPC, waits while busy and
+  completes after the fixture becomes idle. This does not certify live robot
+  jobs on all platforms.
+- The Windows installer upgraded this computer from 1.0.3 to 1.0.4 in the existing
+  application directory with exit code zero. Installed archive checks matched
+  the build and found the tray module, ICO resource and required bundled tools.
+  No bridge processes remained after the installed isolated check.
+- Startup checks used separate empty profiles with zero bots; they did not
+  import existing platform credentials. No existing desktop state files were
+  present in the pre-upgrade snapshot, so populated-state migration is not
+  claimed. The application shortcut resolves to the upgraded executable.
+- Windows packages remain unsigned. Packages were generated and installed
+  locally before GitHub publication. Consult the corresponding GitHub Actions
+  run for hosted CI results; local checks are not evidence of hosted CI success.
+
+托盘后台运行不是 Windows 系统服务，不会自动添加开机启动。
+休眠、关机或退出用户会话仍可能停止服务与网络连接。
+
 ## v1.0.3 Installer And Shutdown / 安装与退出
 
 Verified on 2026-10-17, Windows x64:

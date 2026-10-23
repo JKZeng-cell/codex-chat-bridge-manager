@@ -32,6 +32,12 @@ function Test-BridgeInstallerSource([string]$Directory, [string]$Source) {
   [IO.Path]::GetFullPath($Source).StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)
 }
 
+function Test-BridgeTrayQuitSupport([string]$File) {
+  $info = [Diagnostics.FileVersionInfo]::GetVersionInfo($File)
+  return $info.ProductName -eq 'Codex Chat Bridge Manager' -and
+    [version]::new($info.ProductMajorPart, $info.ProductMinorPart, $info.ProductBuildPart) -ge [version]'1.0.4'
+}
+
 function Request-BridgeWindowClose([int]$ProcessId) {
   if (-not ('BridgeInstallerWindows' -as [type])) {
     Add-Type -TypeDefinition @'
@@ -72,8 +78,18 @@ try {
   $processes = @(Get-BridgeInstallProcesses $InstallDirectory)
   if ($processes.Count -eq 0) { exit 0 }
   if ($Action -eq 'check') { exit 10 }
-  # Request the title-bar close action. Never force-kill jobs.
+  # Tray apps treat WM_CLOSE as hide. Use their protected quit IPC instead.
+  $main = [IO.Path]::Combine($InstallDirectory, 'CodexChatBridgeManager.exe')
+  $quitRequested = $false
   foreach ($item in $processes) {
+    if ([string]::Equals($item.ExecutablePath, $main, [StringComparison]::OrdinalIgnoreCase) -and (Test-BridgeTrayQuitSupport $main)) {
+      if (-not $quitRequested) {
+        Start-Process -FilePath $main -ArgumentList '--quit-for-update' -WorkingDirectory $InstallDirectory -WindowStyle Hidden | Out-Null
+        $quitRequested = $true
+      }
+      continue
+    }
+    # Legacy versions and native probes still use a normal window close.
     $process = Get-Process -Id $item.ProcessId -ErrorAction SilentlyContinue
     if ($process) {
       if ($process.MainWindowHandle -ne [IntPtr]::Zero) { [void]$process.CloseMainWindow() }

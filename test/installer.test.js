@@ -25,3 +25,8 @@ test("Windows hidden application receives a normal close and can reject it while
   const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", path.resolve("test/installer-window-close.test.ps1")], { encoding: "utf8", windowsHide: true, timeout: 45000 });
   assert.equal(result.status, 0, result.stderr || result.error?.message);
 });
+
+test("Windows installer quits tray applications through protected IPC without forcing busy jobs", { skip: process.platform !== "win32" }, () => {
+  const result = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", path.resolve("test/installer-tray-close.test.ps1")], { encoding: "utf8", windowsHide: true, timeout: 45000 });
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+});

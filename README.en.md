@@ -95,7 +95,7 @@ The application UI is currently Chinese; project introductions are bilingual.
 
 ### Windows Desktop App
 
-See the [v1.0.3 installer fix](docs/releases/v1.0.3.md) for the latest update.
+See the [v1.0.4 tray behavior](docs/releases/v1.0.4.md) for this feature update.
 
 Download the Windows x64 Setup.exe or Portable.exe from
 [GitHub Releases](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest).
@@ -112,6 +112,13 @@ Packages are currently unsigned. Windows may show an unknown-publisher warning.
 Allow at least 2 GB of free space on the temporary-files drive for extraction.
 Download only from this repository and verify SHA-256 checksums. Wait for active
 tasks and tool updates before quitting; exiting stops the desktop-managed service.
+
+Minimizing or closing the window hides it to the system tray while bot services
+continue running. Click or double-click the tray icon to restore the workbench.
+Use the tray's Exit action or Application → Exit to stop services. Active tasks
+still block exit. If tray creation fails, window close falls back to normal exit
+instead of leaving an inaccessible background application. Installer updates use
+a separate protected quit request rather than the window-hide action.
 
 ### Run From Source
 
