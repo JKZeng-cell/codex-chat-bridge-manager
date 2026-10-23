@@ -47,6 +47,79 @@ test("WeCom QR binding persists credentials but never exposes them in polling re
   assert.equal(f.starts[0], bot.id);
 });
 
+test("WeCom init status keeps the QR visible and polling until confirmed", async (t) => {
+  const f = await fixture(t, [
+    { data: { scode: "private-code", auth_url: "https://work.weixin.qq.com/test" } },
+    { data: { status: "init" } }, { data: { status: " INIT " } },
+    { data: { status: "scanned" } },
+    { data: { status: "success", bot_info: { botid: "confirmed", secret: "private-secret" } } }
+  ]);
+  const initial = f.manager.start({ platform: "wecom" });
+  const ready = await f.waitReady(initial.id);
+  for (let i = 0; i < 2; i++) {
+    const waiting = await f.manager.get(initial.id, true);
+    assert.equal(waiting.state, "waiting");
+    assert.equal(waiting.qrDataUrl, ready.qrDataUrl);
+    assert.equal(f.manager.isActive(), true);
+    assert.equal((await f.store.list()).length, 0);
+  }
+  assert.equal((await f.manager.get(initial.id, true)).state, "scanned");
+  assert.equal((await f.manager.get(initial.id, true)).state, "connected");
+  assert.equal(f.starts.length, 1);
+});
+
+test("WeCom unknown intermediate statuses preserve QR and never imply success or denial", async (t) => {
+  const f = await fixture(t, [
+    { data: { scode: "code", auth_url: "https://work.weixin.qq.com/test" } },
+    { data: { status: "new-platform-status" } },
+    { data: { status: "scanned" } }, { data: { status: "another-intermediate" } }
+  ]);
+  const s = f.manager.start({ platform: "wecom" });
+  const ready = await f.waitReady(s.id);
+  const first = await f.manager.get(s.id, true);
+  assert.equal(first.state, "waiting");
+  assert.equal(first.qrDataUrl, ready.qrDataUrl);
+  assert.equal(first.message.includes("拒绝"), false);
+  await f.manager.get(s.id, true);
+  assert.equal((await f.manager.get(s.id, true)).state, "scanned");
+  assert.equal((await f.store.list()).length, 0);
+  assert.equal(f.starts.length, 0);
+});
+
+test("WeCom explicit denials and errors remain terminal rather than polling forever", async (t) => {
+  for (const status of ["denied", "rejected", "cancelled", "canceled", "failed", "error"]) {
+    const f = await fixture(t, [
+      { data: { scode: "code", auth_url: "https://work.weixin.qq.com/test" } }, { data: { status } }
+    ]);
+    const s = f.manager.start({ platform: "wecom" }); await f.waitReady(s.id);
+    assert.equal((await f.manager.get(s.id, true)).state, "error", status);
+    assert.equal(f.manager.isActive(), false);
+    assert.equal((await f.store.list()).length, 0);
+  }
+});
+
+test("WeCom intermediate polling stays bounded by QR expiry", async (t) => {
+  let now = 1000;
+  const f = await fixture(t, [
+    { data: { scode: "code", auth_url: "https://work.weixin.qq.com/test" } }, { data: { status: "init" } }
+  ], { now: () => now });
+  const s = f.manager.start({ platform: "wecom" }); await f.waitReady(s.id);
+  assert.equal((await f.manager.get(s.id, true)).state, "waiting");
+  now += 301000;
+  assert.equal((await f.manager.get(s.id, true)).state, "expired");
+  assert.equal(f.calls.length, 2);
+});
+
+test("WeCom success without credentials cannot save a bot or report connected", async (t) => {
+  const f = await fixture(t, [
+    { data: { scode: "code", auth_url: "https://work.weixin.qq.com/test" } }, { data: { status: "success" } }
+  ]);
+  const s = f.manager.start({ platform: "wecom" }); await f.waitReady(s.id);
+  await assert.rejects(f.manager.get(s.id, true), /有效机器人凭据/);
+  assert.equal((await f.store.list()).length, 0);
+  assert.notEqual((await f.manager.get(s.id)).state, "connected");
+});
+
 test("DingTalk registration performs nonce and device-code flow", async (t) => {
   const f = await fixture(t, [{ errcode: 0, nonce: "nonce" },
     { errcode: 0, device_code: "device", verification_uri_complete: "https://login.dingtalk.com/test", expires_in: 120 },

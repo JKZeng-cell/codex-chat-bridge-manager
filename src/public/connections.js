@@ -41,8 +41,15 @@ export function setupConnections({ $, state, api, post, escapeHtml: esc, status,
     $("app-secret-label").textContent = platform === "weixin" ? "机器人 Token" : platform === "dingtalk" ? "Client Secret" : "App Secret";
     $("bot-form").elements.namedItem("allowedOpenIds").closest("label").querySelector("span").textContent = platform === "feishu" ? "允许的 open_id" : "允许的用户 ID";
     $("delete-connection").hidden = !entry || state.creating;
-    const feishuOnly = ["preferCli", "attachmentsEnabled", "streamingCardEnabled", "grantRequesterManageAccess", "cliIdentity"];
+    const feishuOnly = ["preferCli", "attachmentsEnabled", "grantRequesterManageAccess", "cliIdentity"];
     for (const name of feishuOnly) $("bot-form").elements.namedItem(name).closest("label").hidden = platform !== "feishu";
+    $("bot-form").elements.namedItem("platformCliEnabled").closest("label").hidden = !["wecom", "dingtalk"].includes(platform);
+    $("platform-reply-help").textContent = {
+      feishu: "接收后确认，使用流式卡片显示进度与答复。",
+      wecom: "接收后确认，在同一条流式消息中更新答复。",
+      dingtalk: "接收后确认，优先使用 AI 流式卡片。缺少卡片权限时自动回退文本；需开启互动卡片与 AI 流式更新权限。",
+      weixin: "接收后确认，按已完成的答复段落逐步发送。微信不支持原位编辑，不会逐字刷屏。"
+    }[platform];
     const bots = state.overview?.bots || [];
     $("connections-count").textContent = bots.length + " 个连接 · " + bots.filter((item) => item.service.state === "running").length + " 个在线";
     patchContent($("connection-cards"), bots.map((item) => {

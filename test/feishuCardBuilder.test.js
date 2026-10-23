@@ -25,6 +25,12 @@ test("progress shows only the latest focus and final card never duplicates the a
   assert.equal(final.body.elements.length, 1);
 });
 
+test("streaming card includes bounded public answer snapshots in addition to compact status", () => {
+  const progress = buildStreamingCardContent({ ...state, answerText: "Public answer ".repeat(500) }, { maxChars: 1000 });
+  assert.match(progress, /Public answer/);
+  assert.ok(progress.length <= 1000);
+});
+
 test("failure card strips repeated execution headers and bounds error output", () => {
   const card = buildFailureCard(state, "Task execution failed.\nElapsed: 2s\n\nNetwork connection failed.\n" + "details ".repeat(1000));
   const content = textOf(card);

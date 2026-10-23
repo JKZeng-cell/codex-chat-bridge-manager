@@ -32,6 +32,7 @@ function normalizeBotRecord(input, current = null) {
     allowedOpenIds: toArray(input.allowedOpenIds ?? current?.allowedOpenIds),
     cliIdentity: String(input.cliIdentity || current?.cliIdentity || "bot").trim() || "bot",
     preferCli: input.preferCli ?? current?.preferCli ?? true,
+    platformCliEnabled: input.platformCliEnabled ?? current?.platformCliEnabled ?? false,
     allowPlainTextInP2P: input.allowPlainTextInP2P ?? current?.allowPlainTextInP2P ?? true,
     attachmentsEnabled: input.attachmentsEnabled ?? current?.attachmentsEnabled ?? true,
     streamingCardEnabled: input.streamingCardEnabled ?? current?.streamingCardEnabled ?? true,

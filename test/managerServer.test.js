@@ -87,3 +87,52 @@ test("manager shutdown closes incomplete HTTP requests instead of leaving the de
     await closed;
   } finally { clearTimeout(timer); request.destroy(); }
 });
+
+test("platform CLI endpoints target the selected bot, block cross-site actions and protect in-flight auth", async (t) => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "manager-cli-api-"));
+  const config = loadManagerConfig();
+  config.manager = { host: "127.0.0.1", port: 0 };
+  config.feishu = { ...config.feishu, appId: "", appSecret: "" };
+  config.runtime = { ...config.runtime, managerStateDir: path.join(dir, "manager"), botsStateDir: path.join(dir, "bots") };
+  config.cli = { ...config.cli, configDir: path.join(dir, "cli") };
+  let active = false;
+  let authorized = false;
+  const starts = [];
+  const calls = [];
+  const manager = {
+    async getStatus(bot, fresh) { calls.push(["status", bot.id, fresh]); return { platform: bot.platform, supported: true, authorized }; },
+    async startAuthorization(bot) { calls.push(["authorize", bot.id]); active = true; return { authTask: { running: true } }; },
+    async cancelAuthorization(bot) { calls.push(["cancel", bot.id]); active = false; return { authTask: { running: false } }; },
+    isActive(id) { return active && (!id || id === "team-one"); }, close() {}
+  };
+  const serviceManager = { async startAutoStartBots() {}, async stopAll() {}, async start(id) { starts.push(id); },
+    async listStatuses() { return [{ bot: { id: "team-one" }, service: { queue: { activeCount: 0, pendingCount: 0 } } }]; } };
+  const server = createManagerServer(config, { platformCliManager: manager, serviceManager, codexStatus: { getStatus: () => ({}), refresh: async () => ({}) } });
+  await server.start();
+  t.after(async () => { await server.stop(); await fs.rm(dir, { recursive: true, force: true }); });
+  const base = "http://127.0.0.1:" + server.getAddress().port;
+  const bot = { id: "team-one", platform: "wecom", name: "Team", appId: "app", appSecret: "secret", autoStart: false };
+  assert.equal((await fetch(base + "/api/bots", { method: "POST", body: JSON.stringify(bot) })).status, 200);
+  assert.equal((await fetch(base + "/api/platform-cli/team-one")).status, 200);
+  assert.deepEqual(calls.at(-1), ["status", "team-one", undefined]);
+  assert.equal((await fetch(base + "/api/platform-cli/team-one/check", { method: "POST" })).status, 200);
+  assert.deepEqual(calls.at(-1), ["status", "team-one", true]);
+  assert.equal((await fetch(base + "/api/platform-cli/team-one/enable", { method: "POST" })).status, 500);
+  assert.equal((await (await fetch(base + "/api/bots")).json()).bots[0].platformCliEnabled, false);
+  assert.equal((await fetch(base + "/api/platform-cli/team-one/authorize", { method: "POST", headers: { Origin: "https://evil.test" } })).status, 403);
+  assert.equal(active, false);
+  assert.equal((await fetch(base + "/api/platform-cli/team-one/authorize", { method: "POST" })).status, 200);
+  assert.equal((await fetch(base + "/api/bots/team-one", { method: "DELETE" })).status, 500);
+  assert.equal((await fetch(base + "/api/bots", { method: "POST", body: JSON.stringify(bot) })).status, 500);
+  assert.equal((await fetch(base + "/api/maintenance", { method: "POST", body: JSON.stringify({ action: "check" }) })).status, 500);
+  assert.equal((await fetch(base + "/api/platform-cli/team-one/cancel", { method: "POST" })).status, 200);
+  assert.equal(active, false);
+  authorized = true;
+  assert.equal((await fetch(base + "/api/platform-cli/team-one/enable", { method: "POST", headers: { Origin: "https://evil.test" } })).status, 403);
+  assert.equal(starts.length, 0);
+  const enabled = await (await fetch(base + "/api/platform-cli/team-one/enable", { method: "POST" })).json();
+  assert.equal(enabled.applied, true);
+  assert.deepEqual(starts, ["team-one"]);
+  assert.equal((await (await fetch(base + "/api/bots")).json()).bots[0].platformCliEnabled, true);
+  assert.equal((await fetch(base + "/api/platform-cli/missing")).status, 404);
+});

@@ -10,8 +10,10 @@ pet-runs/
 *.tgz
 *.zip
 coverage/
+.playwright-cli/
 dist/
 build/runtime/
+build/runtime-cache/
 build/icon.png
 build/icon.ico
 .DS_Store

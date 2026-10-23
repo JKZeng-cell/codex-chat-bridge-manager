@@ -3,6 +3,7 @@ import { setupConnections } from "./connections.js";
 import { renderMarkdown } from "./markdown.js";
 import { createAvatarPreferences, renderAvatar, setupAvatarPicker } from "./avatars.js";
 import { formatUptime, summarizeServices, describeCodexStatus } from "./systemStatus.js";
+import { setupPlatformCli } from "./platformCli.js";
 
 mountIcons();
 const $ = (id) => document.getElementById(id);
@@ -22,7 +23,7 @@ const viewCopy = {
   skills: ["技能", "技能", "管理本地技能，为机器人选择能力。"],
   system: ["系统", "设置", "服务、工具更新与运行状态。"]
 };
-const checkboxNames = ["preferCli", "allowPlainTextInP2P", "attachmentsEnabled", "streamingCardEnabled", "grantRequesterManageAccess", "sessionThreadsEnabled", "replySkillEnabled", "autoStart"];
+const checkboxNames = ["preferCli", "allowPlainTextInP2P", "attachmentsEnabled", "streamingCardEnabled", "platformCliEnabled", "grantRequesterManageAccess", "sessionThreadsEnabled", "replySkillEnabled", "autoStart"];
 const form = $("bot-form");
 const avatarPreferences = createAvatarPreferences();
 const markupCache = new WeakMap();
@@ -132,6 +133,7 @@ function renderOverview() {
   renderCli();
   renderSystem();
   connections.render();
+  platformCli.render();
 }
 function readForm() {
   const data = Object.fromEntries(new FormData(form));
@@ -151,7 +153,7 @@ function fillBotForm(force = false) {
   form.elements.namedItem("cliIdentity").value = data.cliIdentity || "bot";
   form.elements.namedItem("maxConcurrentJobs").value = data.maxConcurrentJobs || 1;
   for (const name of ["allowedChatIds", "allowedOpenIds"]) form.elements.namedItem(name).value = Array.isArray(data[name]) ? data[name].join(", ") : data[name] || "";
-  for (const name of checkboxNames) form.elements.namedItem(name).checked = data[name] ?? true;
+  for (const name of checkboxNames) form.elements.namedItem(name).checked = data[name] ?? (name !== "platformCliEnabled");
   const model = form.elements.namedItem("model");
   const models = state.overview?.models || [];
   model.replaceChildren(new Option("跟随默认", ""));
@@ -272,7 +274,7 @@ function renderSkills() {
   patchContent($("skills-list"), state.skills.length ? state.skills.map((skill) => {
     const selected = draft ? draft.has(skill.path) : skill.selected;
     const visible = !query || (skill.name + " " + skill.description).toLowerCase().includes(query);
-    return '<label class="skill-row"' + (visible ? "" : " hidden") + '><input type="checkbox" value="' + escapeHtml(skill.path) + '"' + (selected ? " checked" : "") + ' /><div><strong>' + escapeHtml(skill.name) + '</strong><div class="skill-meta">' + escapeHtml(skill.description || "暂无描述") + '</div><div class="skill-meta" title="' + escapeHtml(skill.path) + '">' + escapeHtml(skill.source || "本地") + "</div></div></label>";
+    return '<label class="skill-row"' + (visible ? "" : " hidden") + '><input type="checkbox" value="' + escapeHtml(skill.path) + '"' + (selected ? " checked" : "") + ' /><div><strong>' + escapeHtml(skill.name) + '</strong><div class="skill-meta">' + escapeHtml(skill.description || "暂无描述") + '</div><div class="skill-meta" title="' + escapeHtml(skill.path) + '">' + escapeHtml(skill.source === "builtin" ? "内置官方技能" : skill.source || "本地") + "</div></div></label>";
   }).join("") : empty("没有找到技能"));
   const visibleCount = $("skills-list").querySelectorAll(".skill-row:not([hidden])").length;
   if (state.skills.length && !visibleCount) patchContent($("skills-list"), empty("没有匹配的技能", "试试其他关键词"));
@@ -427,6 +429,12 @@ setInterval(() => {
   refreshAll().catch(() => { state.offline = true; renderSystem(); $("connection-dot").classList.add("offline"); $("connection-label").textContent = "连接中断，稍后自动重试"; });
 }, 15000);
 const connections = setupConnections({ $, state, api, post, escapeHtml, status, selectedBot, selectBot, setView, refreshAll, showToast, runAction, patchContent, avatarPreferences });
+const platformCli = setupPlatformCli({ $, state, selectedBot, api, post, escapeHtml, patchContent, runAction, showToast, refreshAll, onEnabled(id) {
+  if (id !== state.selectedBotId) return;
+  form.elements.namedItem("platformCliEnabled").checked = true;
+  const draft = state.drafts.get(id);
+  if (draft) draft.platformCliEnabled = true;
+} });
 setupAvatarPicker({ preferences: avatarPreferences, getBotId: () => state.creating ? "" : state.selectedBotId, onChange(persisted) {
   renderOverview();
   showToast(persisted ? "头像已更换" : "头像已更换，但浏览器禁止存储，关闭页面后可能丢失", !persisted);

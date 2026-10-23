@@ -472,4 +472,9 @@ dialog .control-row { justify-content: flex-end; }
   .bind-dialog { padding: 22px; }
   .surface-heading { gap: 16px; }
 }
+.platform-cli-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cli-install-hint { margin: 14px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.cli-install-hint code, .cli-config-path { display: block; max-width: 100%; overflow-wrap: anywhere; white-space: pre-wrap; margin: 10px 0; }
+#platform-cli-status details p { line-height: 1.7; }
+#platform-cli-status .auth-link { display: inline-flex; align-items: center; gap: 6px; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } .icon-spin { animation: none; } }

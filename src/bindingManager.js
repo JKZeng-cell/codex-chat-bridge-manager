@@ -134,7 +134,7 @@ export function createBindingManager(config, botStore, services, options = {}) {
     let result;
     if (session.platform === "wecom") {
       value = await request("https://work.weixin.qq.com/ai/qc/query_result?scode=" + encodeURIComponent(session.code));
-      result = String(value.data?.status || "").toLowerCase();
+      result = String(value.data?.status ?? "").trim().toLowerCase();
       if (result === "success") return complete(session, { appId: value.data.bot_info?.botid, appSecret: value.data.bot_info?.secret });
     } else if (session.platform === "dingtalk") {
       value = await request("https://oapi.dingtalk.com/app/registration/poll", { device_code: session.code });
@@ -151,6 +151,18 @@ export function createBindingManager(config, botStore, services, options = {}) {
     if (!ACTIVE.has(session.state)) return;
     if (["expired", "timeout"].includes(result)) { session.state = "expired"; session.message = "二维码已过期，请重新生成"; }
     else if (["scaned", "scanned"].includes(result)) { session.state = "scanned"; session.message = "已扫码，请在手机上确认绑定"; }
+    else if (session.platform === "wecom") {
+      if (["denied", "rejected", "cancelled", "canceled"].includes(result)) {
+        session.state = "error";
+        session.message = "企业微信授权已取消或被拒绝，请确认后重新绑定";
+      } else if (["failed", "error"].includes(result)) {
+        session.state = "error";
+        session.message = "企业微信授权未完成，请按手机提示检查权限后重试";
+      } else if (result && !["init", "wait", "waiting", "pending"].includes(result)) {
+        // Unrecognized intermediate states are not evidence of denied authorization.
+        session.message = "正在等待企业微信确认，请在手机上继续完成授权";
+      }
+    }
     else if (result && !["wait", "waiting", "pending"].includes(result)) {
       session.state = "error";
       session.message = "平台需要额外验证或拒绝了授权，请在手机上完成验证后重新绑定";

@@ -59,7 +59,7 @@ export function buildStreamingCardContent(state, options = {}) {
   const latest = (state.progressLines || []).filter(Boolean).at(-1);
   const focus = summarizeText(latest || "正在准备任务", 100);
   return truncateMiddle(
-    [buildStatusLine(state.statusText, state.startedAt), focus].join("\n\n"),
+    [buildStatusLine(state.statusText, state.startedAt), focus, optimizeCardMarkdown(state.answerText)].filter(Boolean).join("\n\n"),
     options.maxChars || 3200
   );
 }

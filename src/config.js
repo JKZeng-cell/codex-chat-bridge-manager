@@ -2,6 +2,7 @@ import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { resolveFeishuCliBin } from "./feishuCli.js";
+import { platformCliDirectory } from "./platformCli.js";
 
 function readRequired(name) {
   const value = process.env[name]?.trim();
@@ -103,8 +104,14 @@ export function loadManagerConfig() {
         process.env.LARKSUITE_CLI_CONFIG_DIR || path.join(stateDir, "lark-cli-workconfig")
       )
     },
+    platformClis: {
+      wecom: { bin: process.env.WECOM_CLI_BIN?.trim() || "", bundledBin: path.join(projectRoot, "build", "runtime", "wecom-cli.exe") },
+      dingtalk: { bin: process.env.DINGTALK_CLI_BIN?.trim() || "", bundledBin: path.join(projectRoot, "build", "runtime", "dws.exe") }
+    },
     skills: {
+      bundledRoots: [path.join(projectRoot, "build", "runtime", "skills")],
       roots: [
+        path.join(projectRoot, "build", "runtime", "skills"),
         path.join(os.homedir(), ".codex", "skills"),
         path.join(os.homedir(), ".agents", "skills")
       ],
@@ -228,8 +235,10 @@ export function buildRuntimeConfigFromBot(bot, managerConfig = loadManagerConfig
       platform: bot.platform || "feishu",
       platformConfig: bot.platformConfig || {},
       name: bot.name || bot.id,
-      preferredSkills: Array.isArray(bot.preferredSkills) ? bot.preferredSkills : []
+      preferredSkills: Array.isArray(bot.preferredSkills) ? bot.preferredSkills : [],
+      platformCliEnabled: bot.platformCliEnabled === true
     },
+    platformClis: managerConfig.platformClis,
     feishu: {
       appId: bot.appId,
       appSecret: bot.appSecret,
@@ -281,6 +290,8 @@ export function buildRuntimeConfigFromBot(bot, managerConfig = loadManagerConfig
     },
     codex: {
       ...managerConfig.codex,
+      addDirs: [...managerConfig.codex.addDirs,
+        ...(["wecom", "dingtalk"].includes(bot.platform) && bot.platformCliEnabled === true ? [platformCliDirectory(managerConfig, bot)] : [])],
       workdir: path.resolve(withDefault(bot.workdir, managerConfig.codex.workdir)),
       model: withDefault(bot.model, managerConfig.codex.model)
     },

@@ -51,6 +51,7 @@ export function createFeishuRunReporter({ client, config, context, attachmentHel
   let statusText = "Queued";
   const startedAt = Date.now();
   const progressLines = [];
+  const answerItems = new Map();
   let finalized = false;
   let createMessagePromise = null;
   let operationChain = Promise.resolve();
@@ -75,7 +76,8 @@ export function createFeishuRunReporter({ client, config, context, attachmentHel
   const buildReporterState = () => ({
     statusText,
     startedAt,
-    progressLines
+    progressLines,
+    answerText: [...answerItems.values()].join("\n\n")
   });
 
   const pushLine = (line) => {
@@ -403,6 +405,10 @@ export function createFeishuRunReporter({ client, config, context, attachmentHel
     },
 
     onCodexEvent(event) {
+      if (["item.started", "item.updated", "item.completed"].includes(event?.type) &&
+          event.item?.type === "agent_message" && typeof event.item.text === "string") {
+        answerItems.set(event.item.id || "answer", event.item.text);
+      }
       const line = describeCodexEvent(event);
       if (line) {
         pushLine(line);

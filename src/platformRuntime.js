@@ -4,6 +4,9 @@ import { createPlatformAdapter } from "./platformAdapters.js";
 import { createThreadStore } from "./threadStore.js";
 import { applyCompressedContext } from "./sessionCompression.js";
 import { TaskQueue } from "./taskQueue.js";
+import { createPlatformReplies } from "./platformReplies.js";
+import { platformCliPrompt } from "./platformCli.js";
+import { createPlatformCliManager } from "./platformCliManager.js";
 
 export function createPlatformRuntime(config, options = {}) {
   const runner = options.runner || createCodexRunner(config);
@@ -11,6 +14,7 @@ export function createPlatformRuntime(config, options = {}) {
   const queue = new TaskQueue(config.runtime.maxConcurrentJobs);
   const chains = new Map();
   const seen = new Set();
+  const cliManager = options.cliManager || createPlatformCliManager(config);
   let outstanding = 0;
   let accepting = 0;
   let status = { state: "stopped", startedAt: "", stoppedAt: "", lastError: "", lastMessageAt: "" };
@@ -27,7 +31,7 @@ export function createPlatformRuntime(config, options = {}) {
   }
 
   async function acceptMessage(message) {
-    const { id, chatId, userId, chatType, reply } = message;
+    const { id, chatId, userId, chatType } = message;
     if (!["running", "starting", "error"].includes(status.state) || !id || !chatId || !message.text?.trim()) return;
     if (seen.has(id)) return;
     if (config.bot.platform === "weixin" && config.bot.platformConfig.ownerId && config.bot.platformConfig.ownerId !== userId) return;
@@ -51,24 +55,37 @@ export function createPlatformRuntime(config, options = {}) {
     const update = (patch, threadId) => store.update(sessionKey, (current) => ({ ...current,
       ...(threadId ? { threadId } : {}), updatedAt: new Date().toISOString(),
       history: (current?.history || []).map((entry) => entry.id === id ? { ...entry, ...patch } : entry) }));
+    const replies = createPlatformReplies(message, {
+      enabled: config.feishu.streamingCardEnabled,
+      intervalMs: options.replyIntervalMs,
+      onError: (error) => { void update({ deliveryWarning: "部分流式回复未送达" }).catch(onError); onError(error); }
+    });
+    const acknowledgement = replies.acknowledge(outstanding > 1).catch(async (error) => {
+      onError(error);
+      await update({ deliveryWarning: "接收确认未送达" }).catch(onError);
+    });
     const previous = chains.get(sessionKey) || Promise.resolve();
     const task = previous.catch(() => {}).then(() => queue.push(async () => {
       try {
+        await acknowledgement;
         await update({ status: "running" });
-        if (config.bot.platform === "wecom") await reply("收到，正在处理…", false).catch(onError);
         const record = await store.get(sessionKey);
         const skills = config.bot.preferredSkills || [];
         const skillContext = skills.length ? "Prefer these installed skills when relevant:\n" + skills.join("\n") + "\n\n" : "";
-        const result = await runner.run({ prompt: skillContext + applyCompressedContext(prompt, record),
-          messageId: id, resumeSessionId: config.feishu.sessionThreadsEnabled ? record?.threadId : undefined });
+        const cliStatus = config.bot.platformCliEnabled ? await cliManager.getStatus(config.bot) : null;
+        const result = await runner.run({ prompt: platformCliPrompt(config, cliStatus) + skillContext + applyCompressedContext(prompt, record),
+          messageId: id, resumeSessionId: config.feishu.sessionThreadsEnabled ? record?.threadId : undefined,
+          onEvent: (event) => replies.onEvent(event) });
         await update({ status: "completed", completedAt: new Date().toISOString(), responseText: result.message,
           responseSummary: (result.message || "").slice(0, 320), durationMs: result.durationMs }, result.threadId);
-        try { await reply(result.message || "已完成"); }
+        try { await replies.finish(result.message || "已完成"); }
         catch (error) { await update({ deliveryError: error.message }); onError(error); }
       } catch (error) {
         const detail = (error.details && getCodexFailureMessage(error.details)) || error.message;
         await update({ status: "failed", completedAt: new Date().toISOString(), errorText: detail });
-        await reply("执行未完成：" + detail.slice(0, 1500)).catch(onError);
+        await replies.finish("执行未完成：" + detail.slice(0, 1500), true).catch(async (deliveryError) => {
+          await update({ deliveryError: deliveryError.message }); onError(deliveryError);
+        });
         onError(error);
       }
     }));

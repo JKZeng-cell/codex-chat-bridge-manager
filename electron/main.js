@@ -41,8 +41,9 @@ async function openExternal(value) {
 async function smokeTest(paths, origin) {
   await win.webContents.executeJavaScript(`new Promise((resolve,reject)=>{let n=0;const timer=setInterval(()=>{if(document.querySelector('#connection-label')?.textContent==='本地服务已连接'){clearInterval(timer);resolve(true)}else if(++n>100){clearInterval(timer);reject(new Error('Frontend startup timeout'))}},100)})`);
   const result = await win.webContents.executeJavaScript(`(async()=>{const overview=await(await fetch('/api/overview')).json();document.querySelector('[data-view="system"]').click();return {title:document.title,bots:overview.bots.length,theme:document.documentElement.dataset.theme,version:overview.system.nodeVersion,host:location.hostname,systemVisible:!document.querySelector('#view-system').hidden,hasNode:typeof window.require!=='undefined',iconButtons:[...document.querySelectorAll('.bot-actions button')].every(b=>!b.textContent.trim()&&b.getAttribute('aria-label'))}})()`);
-  const binary = (file) => new Promise((resolve, reject) => {
-    const child = spawn(file, ["--version"], { windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+  const binary = (file, args = ["--version"]) => new Promise((resolve, reject) => {
+    const child = spawn(file, args, { windowsHide: true, stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, WECOM_CLI_CONFIG_DIR: path.join(paths.state, "smoke-wecom"), DWS_CONFIG_DIR: path.join(paths.state, "smoke-dingtalk") } });
     let output = "";
     child.stdout.on("data", (chunk) => { output += chunk; });
     child.on("error", reject);
@@ -50,6 +51,10 @@ async function smokeTest(paths, origin) {
   });
   result.codex = await binary(paths.codex);
   result.feishuCli = await binary(paths.cli);
+  result.wecomCli = await binary(paths.wecom);
+  result.dingtalkCli = await binary(paths.dingtalk, ["version"]);
+  result.builtinSkills = await win.webContents.executeJavaScript(`(async()=>{const data=await(await fetch('/api/skills')).json();const builtin=data.skills.filter(x=>x.source==='builtin');return {wecom:builtin.filter(x=>x.name.startsWith('wecomcli-')).length,dingtalk:builtin.filter(x=>x.name.startsWith('dingtalk-')).length}})()`);
+  if (result.builtinSkills.wecom < 1 || result.builtinSkills.dingtalk < 1 || !result.wecomCli || !result.dingtalkCli) throw new Error("Bundled platform tooling smoke failed.");
   result.appVersion = app.getVersion();
   result.health = await win.webContents.executeJavaScript(`(async()=>{const overview=await(await fetch('/api/overview')).json();const codex=await(await fetch('/api/codex/status',{method:'POST'})).json();return {managerState:overview.system.state,codexState:codex.state,codexVersion:codex.version,codexCheckedAt:codex.checkedAt,healthCards:document.querySelectorAll('.health-surface').length,footer:document.querySelector('.app-footer')?.textContent}})()`);
   result.userData = app.getPath("userData");
@@ -96,6 +101,8 @@ if (acquired && !installerQuit) app.whenReady().then(async () => {
   config.manager = { host: "127.0.0.1", port: smoke ? 0 : 3211 };
   config.feishu = { ...config.feishu, appId: "", appSecret: "", cliBin: paths.cli };
   config.cli = { ...config.cli, bin: paths.cli, configDir: path.join(paths.state, "lark-cli-workconfig") };
+  config.platformClis = { wecom: { bundledBin: paths.wecom, bundledOnly: true }, dingtalk: { bundledBin: paths.dingtalk, bundledOnly: true } };
+  config.skills = { ...config.skills, bundledRoots: [paths.skills], roots: [paths.skills, ...config.skills.roots.filter((root) => !root.endsWith(path.join("build", "runtime", "skills")))] };
   config.codex = { ...config.codex, cliMode: "global", cliBin: paths.codex, model: "", workdir: paths.workdir };
   config.runtime = { ...config.runtime, stateDir: paths.state, logDir: paths.logs, managerStateDir: path.join(paths.state, "manager"), botsStateDir: path.join(paths.state, "bots"), feishuAttachmentDir: path.join(paths.state, "attachments"), sessionThreadStorePath: path.join(paths.state, "sessions.json") };
   server = createManagerServer(config);

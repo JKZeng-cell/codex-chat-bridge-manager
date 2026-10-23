@@ -9,7 +9,8 @@ export function desktopPaths(userData, resources, packaged) {
   return {
     state: path.join(userData, "state"), logs: path.join(userData, "runs"),
     workdir: path.join(userData, "workspace"), cli: path.join(userData, "tools", "lark-cli.exe"),
-    bundledCli: path.join(tools, "lark-cli.exe"), codex: path.join(tools, "codex", "bin", "codex.exe")
+    bundledCli: path.join(tools, "lark-cli.exe"), codex: path.join(tools, "codex", "bin", "codex.exe"),
+    wecom: path.join(tools, "wecom-cli.exe"), dingtalk: path.join(tools, "dws.exe"), skills: path.join(tools, "skills")
   };
 }
 

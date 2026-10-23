@@ -80,7 +80,7 @@ function buildSkillRecord({ raw, skillPath, roots, options }) {
   const frontMatter = parseFrontMatter(raw);
   const description = frontMatter.description || raw.split(/\r?\n/).slice(0, 8).join(" ").trim();
   const normalizedRoot = normalizedRoots.find((root) => skillPath.startsWith(root)) || "";
-  const source = resolveSkillSource(normalizedRoot);
+  const source = options.bundledRoots?.includes(normalizedRoot) ? "builtin" : resolveSkillSource(normalizedRoot);
 
   return {
     id: path.relative(normalizedRoot || path.dirname(skillPath), skillPath).replace(/\\/g, "/"),

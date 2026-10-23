@@ -74,6 +74,7 @@
                     <label class="toggle"><input type="checkbox" name="allowPlainTextInP2P" checked /><span>私聊直接触发</span></label>
                     <label class="toggle"><input type="checkbox" name="attachmentsEnabled" checked /><span>支持附件</span></label>
                     <label class="toggle"><input type="checkbox" name="streamingCardEnabled" checked /><span>流式回复</span></label>
+                    <label class="toggle"><input type="checkbox" name="platformCliEnabled" /><span>平台 CLI</span></label>
                     <label class="toggle"><input type="checkbox" name="grantRequesterManageAccess" checked /><span>授予请求者管理权限</span></label>
                     <label class="toggle"><input type="checkbox" name="sessionThreadsEnabled" checked /><span>延续会话上下文</span></label>
                     <label class="toggle"><input type="checkbox" name="replySkillEnabled" checked /><span>回复技能</span></label>
@@ -86,6 +87,8 @@
             <div class="connection-aside">
               <section class="surface"><div class="surface-heading"><div><h2>连接状态</h2><p>管理当前机器人的消息服务。</p></div></div><div id="bot-connection-status"></div></section>
               <section class="surface" id="feishu-authorization"><div class="surface-heading"><div><h2>飞书授权</h2><p>机器人绑定与用户授权相互独立。授权后可操作文档、日历等。</p></div></div><div class="connection-steps"><span><b>1</b>配置应用</span><span><b>2</b>飞书授权</span></div><div class="control-row"><button class="ghost-button" id="cli-configure"><span class="icon-slot" data-icon="plug" aria-hidden="true"></span>连接 CLI</button><button class="primary-button" id="cli-authorize"><span class="icon-slot" data-icon="shield" aria-hidden="true"></span>去授权</button><button class="text-button" id="cli-cancel" hidden><span class="icon-slot" data-icon="close" aria-hidden="true"></span>取消</button></div><div id="cli-status" class="cli-status"></div></section>
+              <section class="surface" id="platform-cli" hidden><div class="surface-heading"><div><h2 id="platform-cli-title">平台 CLI</h2><p>官方工具与技能已内置，授权后即可启用。</p></div></div><div class="control-row"><button class="ghost-button" id="platform-cli-check"><span class="icon-slot" data-icon="refresh" aria-hidden="true"></span>检测</button><button class="primary-button" id="platform-cli-authorize"><span class="icon-slot" data-icon="shield" aria-hidden="true"></span>授权 CLI</button><button class="ghost-button" id="platform-cli-enable" hidden>启用并连接</button><button class="text-button" id="platform-cli-cancel" hidden>取消</button></div><div id="platform-cli-status" class="cli-status" aria-live="polite"></div></section>
+              <div class="help-note"><strong>回复方式</strong><p id="platform-reply-help"></p></div>
               <div class="help-note"><strong>使用提示</strong><p id="connection-help"></p></div>
             </div>
           </div>

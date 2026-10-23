@@ -9,6 +9,9 @@ test("desktop data and tools stay separate from packaged application resources",
   assert.equal(paths.state, path.resolve("profile/state"));
   assert.equal(paths.codex, path.resolve("resources/tools/codex/bin/codex.exe"));
   assert.equal(paths.cli, path.resolve("profile/tools/lark-cli.exe"));
+  assert.equal(paths.wecom, path.resolve("resources/tools/wecom-cli.exe"));
+  assert.equal(paths.dingtalk, path.resolve("resources/tools/dws.exe"));
+  assert.equal(paths.skills, path.resolve("resources/tools/skills"));
   assert.equal(desktopPaths("profile", "root", false).bundledCli, path.join("root", "build", "runtime", "lark-cli.exe"));
 });
 test("desktop external links and navigation reject privileged protocols and other origins", () => {

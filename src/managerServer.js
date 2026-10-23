@@ -7,6 +7,7 @@ import { createBotStore } from "./botStore.js";
 import { createBindingManager } from "./bindingManager.js";
 import { createMaintenanceManager } from "./maintenanceManager.js";
 import { createCliTaskManager } from "./cliTaskManager.js";
+import { createPlatformCliManager } from "./platformCliManager.js";
 import { readModelCatalog } from "./modelCatalog.js";
 import { createCodexStatusMonitor } from "./codexStatus.js";
 import { buildRuntimeConfigFromBot } from "./config.js";
@@ -100,7 +101,8 @@ export function createManagerServer(config, options = {}) {
     seedBots: createSeedBots(config)
   });
   const cliTaskManager = createCliTaskManager(config);
-  const serviceManager = createServiceManager(config, botStore);
+  const platformCliManager = options.platformCliManager || createPlatformCliManager(config);
+  const serviceManager = options.serviceManager || createServiceManager(config, botStore);
   const bindingManager = createBindingManager(config, botStore, serviceManager);
   const maintenanceManager = createMaintenanceManager(config);
   const codexStatus = options.codexStatus || createCodexStatusMonitor(config);
@@ -155,6 +157,34 @@ export function createManagerServer(config, options = {}) {
     if (req.method === "POST" && url.pathname === "/api/codex/status") {
       return json(res, 200, await codexStatus.refresh());
     }
+    const platformCliMatch = url.pathname.match(/^\/api\/platform-cli\/([a-zA-Z0-9_-]{1,100})(?:\/(check|authorize|cancel|enable))?$/);
+    if (platformCliMatch) {
+      const bot = await botStore.get(platformCliMatch[1]);
+      if (!bot) throw Object.assign(new Error("机器人不存在"), { statusCode: 404 });
+      const action = platformCliMatch[2];
+      if (req.method === "GET" && !action) return json(res, 200, await platformCliManager.getStatus(bot));
+      if (req.method === "POST" && action === "enable") {
+        if (maintenanceManager.getStatus().state === "running" || platformCliManager.isActive(bot.id)) throw new Error("请等待工具更新或授权完成");
+        const info = await platformCliManager.getStatus(bot, true);
+        if (!info.authorized || !info.supported) throw new Error("请先完成当前连接的 CLI 授权");
+        const entry = (await serviceManager.listStatuses()).find((item) => item.bot.id === bot.id);
+        if (entry?.service.queue.activeCount || entry?.service.queue.pendingCount) throw new Error("请等待当前机器人任务完成后应用配置");
+        await botStore.update(bot.id, { platformCliEnabled: true });
+        let applied = true;
+        try { await serviceManager.start(bot.id); } catch { applied = false; }
+        return json(res, 200, { ...info, applied, message: applied ? "CLI 已启用，正在连接机器人" : "CLI 配置已保存，请在任务完成后重新连接机器人" });
+      }
+      if (req.method === "POST" && ["check", "authorize", "cancel"].includes(action)) {
+        if (action === "authorize") {
+          if (maintenanceManager.getStatus().state === "running") throw new Error("请等待工具更新完成后授权");
+          const entry = (await serviceManager.listStatuses()).find((item) => item.bot.id === bot.id);
+          if (entry?.service.queue.activeCount || entry?.service.queue.pendingCount) throw new Error("请等待当前机器人任务完成后授权");
+        }
+        return json(res, 200, await (action === "authorize" ? platformCliManager.startAuthorization(bot)
+          : action === "cancel" ? platformCliManager.cancelAuthorization(bot) : platformCliManager.getStatus(bot, true)));
+      }
+      throw Object.assign(new Error("不支持的 CLI 操作"), { statusCode: 405 });
+    }
     if (req.method === "POST" && url.pathname.startsWith("/api/cli/") && url.pathname !== "/api/cli/auth/cancel") {
       if (maintenanceManager.getStatus().state === "running") throw new Error("请等待工具更新完成后再授权");
       if (url.pathname === "/api/cli/configure" && (await cliTaskManager.getStatus()).authTask?.running) throw new Error("请先完成或取消正在进行的用户授权");
@@ -171,7 +201,7 @@ export function createManagerServer(config, options = {}) {
     if (url.pathname === "/api/maintenance") {
       if (req.method === "GET") return json(res, 200, maintenanceManager.getStatus());
       if (req.method === "POST") {
-        if (bindingManager.isActive()) throw new Error("请先完成或取消机器人绑定，再执行更新");
+        if (bindingManager.isActive() || platformCliManager.isActive()) throw new Error("请先完成或取消绑定与 CLI 授权，再执行更新");
         const { action } = await readBody(req);
         if (action !== "check") {
           const entries = await serviceManager.listStatuses();
@@ -237,6 +267,7 @@ export function createManagerServer(config, options = {}) {
 
     if (req.method === "POST" && url.pathname === "/api/bots") {
       const body = await readBody(req);
+      if (platformCliManager.isActive(body.id)) throw new Error("请先完成或取消此机器人的 CLI 授权");
       const bot = await botStore.save(body);
       return json(res, 200, {
         bot: sanitizeBot(bot)
@@ -246,6 +277,7 @@ export function createManagerServer(config, options = {}) {
     const deleteBotMatch = url.pathname.match(/^\/api\/bots\/([^/]+)$/);
     if (req.method === "DELETE" && deleteBotMatch) {
       const botId = decodeURIComponent(deleteBotMatch[1]);
+      if (platformCliManager.isActive(botId)) throw new Error("请先完成或取消此机器人的 CLI 授权");
       const entry = (await serviceManager.listStatuses()).find((item) => item.bot.id === botId);
       if (entry?.service.queue.activeCount || entry?.service.queue.pendingCount) throw new Error("请等待机器人任务完成后移除连接");
       await serviceManager.stop(botId);
@@ -342,6 +374,7 @@ export function createManagerServer(config, options = {}) {
       const botId = url.searchParams.get("botId");
       const bot = botId ? await botStore.get(botId) : null;
       const skills = await listSkills(config.skills.roots, {
+        bundledRoots: config.skills.bundledRoots,
         selectedPaths: bot?.preferredSkills || [],
         replySkillPath: bot?.replySkillPath || config.skills.replySkillDefault
       });
@@ -441,6 +474,7 @@ export function createManagerServer(config, options = {}) {
     },
 
     async stop() {
+      platformCliManager.close();
       bindingManager.close();
       maintenanceManager.close();
       await serviceManager.stopAll();

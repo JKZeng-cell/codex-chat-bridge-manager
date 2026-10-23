@@ -30,5 +30,10 @@ Dependencies retain their own licenses. Inspect their package LICENSE files and
 
 Windows desktop distributions bundle Electron (MIT and Chromium third-party
 notices included in the application directory), Codex CLI (Apache-2.0), and
-Feishu CLI (MIT). Runtime tool licenses are included under `resources/tools/`.
+Feishu CLI (MIT), WeCom CLI and its official skills (MIT), and DingTalk Workspace
+CLI and its official skills (Apache-2.0). Runtime tool licenses are included under
+`resources/tools/`. Pinned artifact sources, integrity values, and skill commits
+are recorded in `build/platform-tools.lock.json`; the packaged inventory is
+`resources/tools/platform-tools.json`. CLI authorization remains a separate
+user-approved step and no platform credentials are bundled.
 Bundled Codex vendor resources retain their accompanying third-party notices.

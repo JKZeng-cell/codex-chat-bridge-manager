@@ -1,5 +1,45 @@
 # Validation / 验证范围
 
+## v1.0.5 Built-In Platform Tools / 内置平台工具
+
+Verified locally on 2026-10-23, Windows x64:
+
+- All 166 automated tests passed. Full and production dependency audits found
+  zero known vulnerabilities. Coverage includes native/append reply ordering,
+  acknowledgement failure, duplicate suppression, terminal delivery, UTF-8
+  chunking, DingTalk card/text fallback, scoped CLI authorization, cancellation,
+  expiry, readonly diagnostics, quick-enable form synchronization and artifact
+  integrity/path checks.
+- Official WeCom CLI 1.3.4 and DingTalk DWS 1.0.65 executed from application
+  resources, together with 15 WeCom and 16 DingTalk official skills. Artifacts
+  were verified against pinned registry/release digests. DWS license and NOTICE
+  are included. No global CLI or user skill installation was performed.
+- Fresh isolated CLI profiles reported WeCom unauthorized and DingTalk readonly
+  initialization/repair required, not authenticated. The latter remains an
+  actionable setup state rather than blocking the authorization button.
+- A live unscanned WeCom QR was generated and polled twice through the fixed
+  manager: waiting state and QR were retained, with zero saved bots. No phone
+  confirmation, tenant grant, or real chat delivery was performed.
+- Browser checks used fictional bot data and isolated profiles. Real bundled
+  tool detection showed the correct versions/skill counts; simulated QR
+  display/cancellation and saved CLI opt-in were exercised. Desktop 1568px and
+  mobile 390px layouts had no document-width overflow. A favicon 404 was the
+  only browser console error observed.
+- Final unpacked and self-extracting portable 1.0.5 packages passed startup,
+  bundled tools/skills, renderer isolation, system health, tray minimize/restore,
+  close-keeps-service and protected installer-quit IPC checks. Profiles contained
+  zero inherited bots. Packaged source matched the checkout byte-for-byte;
+  tool and SKILL.md hashes matched the generated inventory; private runtime and
+  promotional directories were absent.
+- Installer/portable SHA-256 and updater SHA-512 metadata were verified. Windows
+  executables remain unsigned (`NotSigned`). Automatic in-place installation
+  was blocked by the execution policy, so a successful upgrade of the existing
+  desktop installation is not claimed for this version.
+
+协议、CLI 与 GUI 模拟测试不等于所有平台均已完成手机授权、企业权限审批与真实消息投递验收。
+微信为完成段落分段发送，不是原位逐字编辑；实际增量频率取决于 Codex 输出事件。
+钉钉流式卡片仍需要平台权限，不绕过企业策略。
+
 ## v1.0.4 System Tray / 托盘后台运行
 
 Verified locally on 2026-10-23, Windows x64:

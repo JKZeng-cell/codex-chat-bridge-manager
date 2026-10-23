@@ -44,6 +44,8 @@ and services through the Windows desktop app or a local browser.
 - **Quick connections:** select a platform and scan its authorization code. Manage each connection through a card; existing Feishu apps also support manual configuration.
 - **Readable conversations:** search history, read Markdown, copy code, inspect errors, and compress long contexts.
 - **Independent bots:** isolated settings and history, concurrency limits, and sequential execution within each conversation.
+- **Responsive replies:** acknowledge accepted requests, update native streams/cards on Feishu, WeCom and DingTalk, and send completed segments on WeChat.
+- **Built-in office tools:** ship DingTalk DWS, WeCom CLI and 31 official skills with the desktop app. Authorize and enable per bot without global installation.
 - **Personal avatars:** choose from 16 built-in designs in connection settings. Per-bot choices are saved in the current browser and shown in navigation, cards, and conversations without changing platform avatars.
 - **Central maintenance:** start, disconnect, restart, inspect logs, and update Feishu CLI / official skills.
 - **Runtime status:** inspect uptime, online bots, and task queues; check the Codex CLI version and login state without mistaking local login for verified model connectivity.
@@ -83,8 +85,11 @@ Chat-platform profile images are not modified.
 | Text and isolated sessions | Yes | Yes | Yes | Yes |
 | Connection cards and services | Yes | Yes | Yes | Yes |
 | History and compression | Yes | Yes | Yes | Yes |
-| Attachments and streaming cards | Yes | Not yet | Not yet | Not yet |
-| User CLI auth and CLI/skill updates | Yes | Not applicable | Not applicable | Not applicable |
+| Receipt acknowledgement | Yes | Yes | Yes | Yes |
+| Streaming replies | Cards | In-place stream | Completed segments | AI cards; text fallback |
+| Attachments | Yes | Not yet | Not yet | Not yet |
+| CLI authorization | Feishu CLI | WeCom CLI | Not applicable | DingTalk DWS |
+| CLI/skill distribution | Bundled; official Feishu updater | Bundled; application updates | Not applicable | Bundled; application updates |
 
 Availability depends on account permissions, organization policy, region, and
 upstream APIs. Protocols and adapters have automated mock coverage;
@@ -95,12 +100,13 @@ The application UI is currently Chinese; project introductions are bilingual.
 
 ### Windows Desktop App
 
-See the [v1.0.4 tray behavior](docs/releases/v1.0.4.md) for this feature update.
+See the [v1.0.5 replies and CLI notes](docs/releases/v1.0.5.md). The Release page is authoritative for published packages.
 
 Download the Windows x64 Setup.exe or Portable.exe from
 [GitHub Releases](https://github.com/JKZeng-cell/codex-chat-bridge-manager/releases/latest).
-Electron, Codex CLI, and Feishu CLI are bundled; a separate Node.js installation
-is not required. Use Application → Codex Login (应用 → Codex 登录) for authorization.
+Electron, Codex CLI, Feishu CLI, DingTalk DWS, WeCom CLI and matching official
+skills are bundled. No separate Node.js or global CLI installation is required.
+Use Application → Codex Login (应用 → Codex 登录) for authorization.
 
 Desktop data lives separately under `%APPDATA%/CodexChatBridgeManager`; the local
 manager uses port 3211 and does not import the web workspace's `.env`, bots,
@@ -150,6 +156,38 @@ No `.env` is needed for an empty manager. Advanced users can copy
 `.env.example` to `.env`. Existing `FEISHU_APP_ID` / `FEISHU_APP_SECRET`
 settings seed a compatible default bot. The original `npm run bridge`
 single-bot mode remains available and requires Feishu settings.
+
+## Replies And Platform CLIs
+
+Only messages that pass allowlists/trigger rules and enter the persisted queue receive
+an acknowledgement; duplicates do not rerun tasks. Enable Streaming Replies (流式回复)
+in Advanced Settings to publish public answer events, never reasoning or command logs.
+Updates are throttled and finalized in order. WeChat sends completed segments instead
+of editable/token-by-token messages. Disabling streaming retains receipt and final
+replies. Actual incremental output depends on events emitted by Codex CLI.
+DingTalk requires interactive-card write and AI streaming-update permissions; failures
+fall back to text without silently discarding the result.
+
+Platform CLI authorization is separate from bot binding and does not copy existing
+CLI credentials:
+
+1. Open the DingTalk/WeCom connection settings. The panel detects bundled versions and skills automatically.
+2. Click Authorize CLI (授权 CLI) and complete the official phone flow; Check (检测) refreshes an existing authorization.
+3. Click Enable And Connect (启用并连接). Platform CLI (平台 CLI) in Advanced Settings remains available as a manual switch. Enterprise permissions and write confirmations still apply.
+4. Matching built-in skills are offered to Codex automatically. The Skills page labels them as built-in; personal skill selections remain available. Existing `.codex/skills` and `.agents/skills` are not overwritten.
+
+Desktop distributions pin [WeCom CLI 1.3.4](https://github.com/WecomTeam/wecom-cli)
+with 15 official skills and [DingTalk DWS 1.0.65](https://github.com/DingTalk-Real-AI/dingtalk-workspace-cli)
+with 16 skills. Sources, versions and artifact integrity values live in
+`build/platform-tools.lock.json`; tools/skills update with the application.
+Source users can prepare the same resources with `node scripts/platform-tools.js`.
+This integration requires WeCom CLI >= 1.2.1 and DWS >= 1.0.65. Each bot uses
+`bots/<bot-id>/cli/<platform>` inside the application state directory.
+Set `WECOM_CLI_BIN` / `DINGTALK_CLI_BIN` to an official native executable when needed;
+`.cmd`, `.bat` and `.ps1` launchers are not supported. The desktop app only uses its
+bundled tools and reports missing files rather than silently falling back to a global
+installation. Source mode permits explicit compatible binaries. Global installation
+commands and changes to user skill directories are not automatically executed.
 
 ## Skills, Models, And Updates
 

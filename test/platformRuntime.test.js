@@ -11,7 +11,7 @@ import { compressSessionRecord } from "../src/sessionCompression.js";
 import { createPlatformAdapter } from "../src/platformAdapters.js";
 import { EventEmitter } from "node:events";
 
-async function fixture(t, runner) {
+async function fixture(t, runner, options = {}) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "platform-runtime-"));
   t.after(async () => { await fs.rm(dir, { recursive: true, force: true }); });
   const managerConfig = loadManagerConfig();
@@ -19,7 +19,7 @@ async function fixture(t, runner) {
   const config = buildRuntimeConfigFromBot({ id: "wecom-test", platform: "wecom", name: "Team", appId: "app", appSecret: "secret", maxConcurrentJobs: 2 }, managerConfig);
   const store = createThreadStore(config.runtime.sessionThreadStorePath);
   let handlers;
-  const runtime = createPlatformRuntime(config, { runner, store, adapterFactory(_config, hooks) {
+  const runtime = createPlatformRuntime(config, { ...options, runner, store, adapterFactory(_config, hooks) {
     handlers = hooks;
     return { async start() { hooks.onState("running"); }, async stop() {} };
   } });
@@ -97,6 +97,65 @@ test("execution failure is stored and replied without marking transport offline"
   assert.equal((await f.store.get("p2p:chat-one")).history[0].status, "failed");
   assert.match(f.replies.at(-1).content, /execution failed/);
   assert.equal(f.runtime.getStatus().state, "running");
+  await f.runtime.stop();
+});
+
+test("accepted messages acknowledge while queued, but duplicate and forbidden messages do not", async (t) => {
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  t.after(() => release());
+  let calls = 0;
+  const f = await fixture(t, { async run() { calls++; await gate; return { message: "answer" }; } });
+  for (const platform of ["wecom", "dingtalk", "weixin"]) {
+    f.config.bot.platform = platform;
+    await f.handlers.onMessage(f.message(platform, "request"));
+  }
+  await f.handlers.onMessage(f.message("wecom", "duplicate"));
+  f.config.feishu.allowedOpenIds = new Set(["other"]);
+  await f.handlers.onMessage(f.message("forbidden", "request"));
+  for (let i = 0; i < 100 && f.replies.length < 3; i++) await new Promise((resolve) => setTimeout(resolve, 5));
+  assert.equal(f.replies.length, 3);
+  assert.equal(f.replies.every((reply) => reply.finish === false && /收到/.test(reply.content)), true);
+  assert.equal(calls, 1);
+  release(); await f.drain(); await f.runtime.stop();
+});
+
+test("failed acknowledgement and final delivery do not rerun Codex or mark completed execution failed", async (t) => {
+  let count = 0;
+  const f = await fixture(t, { async run() { count++; return { message: "answer" }; } });
+  const message = { ...f.message("one", "request"), async reply() { throw new Error("unavailable transport"); } };
+  await f.handlers.onMessage(message); await f.drain();
+  await f.handlers.onMessage(message); await f.drain();
+  const record = (await f.store.get("p2p:chat-one")).history[0];
+  assert.equal(count, 1);
+  assert.equal(record.status, "completed");
+  assert.match(record.deliveryError, /unavailable transport/);
+  assert.match(record.deliveryWarning, /接收确认/);
+  await f.runtime.stop();
+});
+
+test("platform CLI instructions require explicit opt-in and verified per-bot authorization", async (t) => {
+  const calls = [];
+  let authorized = false;
+  let checks = 0;
+  const f = await fixture(t, { async run(input) { calls.push(input.prompt); return { message: "ok" }; } }, {
+    cliManager: { async getStatus(bot) { checks++; assert.equal(bot.id, "wecom-test"); return { supported: true, authorized }; } }
+  });
+  const binary = path.join(f.dir, "fake-cli.exe");
+  await fs.writeFile(binary, "fixture only");
+  f.config.platformClis = { wecom: { bin: binary } };
+  await f.handlers.onMessage(f.message("one", "ordinary request")); await f.drain();
+  assert.equal(calls[0], "ordinary request");
+  assert.equal(checks, 0);
+  f.config.bot.platformCliEnabled = true;
+  await f.handlers.onMessage(f.message("two", "platform request")); await f.drain();
+  assert.match(calls[1], /not authorized for this bot/);
+  assert.doesNotMatch(calls[1], /native executable/);
+  authorized = true;
+  await f.handlers.onMessage(f.message("three", "platform request")); await f.drain();
+  assert.match(calls[2], /WECOM_CLI_CONFIG_DIR/);
+  assert.match(calls[2], /Request user confirmation for writes/);
+  assert.equal(checks, 2);
   await f.runtime.stop();
 });
 

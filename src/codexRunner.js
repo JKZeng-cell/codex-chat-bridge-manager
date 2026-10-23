@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 
 import { cleanCodexCliNoise } from "./utils.js";
+import { PLATFORM_CLIS, platformCliDirectory, platformCliEnvironment, resolvePlatformCli } from "./platformCli.js";
 
 function makeRunId(messageId) {
   const safeMessageId = messageId.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -83,6 +84,7 @@ export function createCodexRunner(config) {
   return {
     async run({ prompt, messageId, onEvent, onStderr, resumeSessionId }) {
       await fsp.mkdir(config.runtime.logDir, { recursive: true });
+      if (config.bot?.platformCliEnabled && PLATFORM_CLIS[config.bot.platform]) await fsp.mkdir(platformCliDirectory(config, config.bot), { recursive: true });
 
       const runId = makeRunId(messageId);
       const outputPath = path.join(config.runtime.logDir, `${runId}.message.txt`);
@@ -97,9 +99,12 @@ export function createCodexRunner(config) {
       let stdoutBuffer = "";
       let threadId = resumeSessionId || "";
 
+      const platform = config.bot?.platform;
+      const env = PLATFORM_CLIS[platform] ? platformCliEnvironment(config, config.bot, process.env,
+        config.bot.platformCliEnabled ? resolvePlatformCli(platform, config.platformClis?.[platform]) : "") : process.env;
       const child = spawn(command, args, {
         cwd: config.codex.workdir,
-        env: process.env,
+        env,
         windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"]
       });

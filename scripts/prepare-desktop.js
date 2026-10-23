@@ -1,12 +1,14 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { preparePlatformTools } from "./platform-tools.js";
 
 if (process.platform !== "win32" || process.arch !== "x64") throw new Error("This release target requires Windows x64.");
 const root = process.cwd();
 const target = path.join(root, "build", "runtime");
 const codexRoot = path.join(root, "node_modules", "@openai", "codex-win32-x64", "vendor", "x86_64-pc-windows-msvc");
 await fs.mkdir(target, { recursive: true });
+await preparePlatformTools(root);
 const cliRoot = path.join(root, "node_modules", "@larksuite", "cli");
 const cli = path.join(cliRoot, "bin", "lark-cli.exe");
 try { await fs.access(cli); } catch {
